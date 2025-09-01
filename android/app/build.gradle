@@ -1,0 +1,67 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+    id 'com.google.gms.google-services'
+
+}
+
+android {
+    namespace = "com.AgniDriver.agnidriver2025"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = "25.1.8937393"
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true // Add this line
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17
+    }
+
+   defaultConfig {
+    applicationId = "com.AgniDriver.agnidriver2025"
+    minSdkVersion 21  // Set manually if needed
+    targetSdkVersion 34  // Set manually if needed
+    versionCode 9  // First version, increase this for updates
+    versionName "1.0.0"  // First release version
+}
+
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore') // Debug signing
+        }
+         release {
+            storeFile file(rootProject.file("keystore.jks"))
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "agni2025"
+            keyAlias System.getenv("KEY_ALIAS") ?: "my-key-alias"
+            keyPassword System.getenv("KEY_PASSWORD") ?: "agni2025"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.2' // Add this line
+    implementation 'com.google.android.gms:play-services-maps:18.2.0'
+    
+}

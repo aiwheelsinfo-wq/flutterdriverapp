@@ -1,0 +1,2 @@
+C:/Users/USER/agnidriver2025/android/app/.cxx/Debug/2r102a5y/x86_64/CMakeFiles/edit_cache.dir
+C:/Users/USER/agnidriver2025/android/app/.cxx/Debug/2r102a5y/x86_64/CMakeFiles/rebuild_cache.dir

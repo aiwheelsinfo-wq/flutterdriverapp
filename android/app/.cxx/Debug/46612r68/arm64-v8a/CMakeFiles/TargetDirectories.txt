@@ -1,0 +1,2 @@
+C:/Users/Agni Car/agnidriver2025/android/app/.cxx/Debug/46612r68/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/Agni Car/agnidriver2025/android/app/.cxx/Debug/46612r68/arm64-v8a/CMakeFiles/rebuild_cache.dir
