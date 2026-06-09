@@ -1,35 +1,33 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
     id 'com.google.gms.google-services'
 
 }
 
 android {
-    namespace = "com.AgniDriver.agnidriver2025"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "25.1.8937393"
-
+    namespace "com.AgniDriver.agnidriver2025"
+    compileSdk flutter.compileSdkVersion
+    ndkVersion "27.0.12077973"   // 🔥 add this line
+ 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-        coreLibraryDesugaringEnabled true // Add this line
-    }
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+    coreLibraryDesugaringEnabled true
+}
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17
-    }
+kotlinOptions {
+    jvmTarget = "17"
+}
 
    defaultConfig {
     applicationId = "com.AgniDriver.agnidriver2025"
-    minSdkVersion 21  // Set manually if needed
-    targetSdkVersion 34  // Set manually if needed
-    versionCode 9  // First version, increase this for updates
+    minSdkVersion flutter.minSdkVersion  // Set manually if needed
+    targetSdkVersion 35  // Set manually if needed
+    versionCode 23  // First version, increase this for updates
     versionName "1.0.0"  // First release version
 }
-
     signingConfigs {
         debug {
             storeFile file('debug.keystore') // Debug signing
@@ -57,11 +55,10 @@ flutter {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.25"  // ✅ match project level
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.2' // Add this line
-    implementation 'com.google.android.gms:play-services-maps:18.2.0'
-    
+    implementation 'com.google.android.gms:play-services-maps:18.2.0'// Only the correct desugar version
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"   
 }

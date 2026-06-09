@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class StartTripOtpPage extends StatefulWidget {
+  const StartTripOtpPage({super.key});
+
   @override
   _StartTripOtpPageState createState() => _StartTripOtpPageState();
 }

@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert'; // To handle JSON responses
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'api_config.dart';
 
+
+// Import your existing pages
+import 'whatsapp_booking_list.dart';
 import 'car_reg_form.dart';
 
 class OwnerRegPage extends StatefulWidget {
+  const OwnerRegPage({super.key});
+
   @override
   _OwnerPageState createState() => _OwnerPageState();
 }
@@ -14,210 +21,229 @@ class OwnerRegPage extends StatefulWidget {
 class _OwnerPageState extends State<OwnerRegPage> {
   final _formKey = GlobalKey<FormState>();
   final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
-  TextEditingController agencyNameController = TextEditingController();
-  TextEditingController ownerNameController = TextEditingController();
-  TextEditingController addressController = TextEditingController();
-  TextEditingController emailController = TextEditingController();
-  TextEditingController secondNumberController = TextEditingController();
-  TextEditingController cityController = TextEditingController();
-  TextEditingController pinCodeController = TextEditingController();
-  bool _isAgree = false; // Variable to track if the user agrees to the terms
 
-  // Function to send POST request with form data
+  final TextEditingController agencyNameController = TextEditingController();
+  final TextEditingController ownerNameController = TextEditingController();
+  final TextEditingController addressController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController secondNumberController = TextEditingController();
+  final TextEditingController cityController = TextEditingController();
+  final TextEditingController pinCodeController = TextEditingController();
+
+  bool _isAgree = false;
+  bool _isLoading = false;
+
   Future<void> _submitForm() async {
-    String? phoneNumber = await secureStorage.read(key: "phone_number");
-    if (_formKey.currentState!.validate() && _isAgree) {
-      // Collecting the data from form fields
-      String agencyName = agencyNameController.text;
-      String ownerName = ownerNameController.text;
-      String address = addressController.text;
-      String email = emailController.text;
-      String secondNumber = secondNumberController.text;
-      String city = cityController.text;
-      String pinCode = pinCodeController.text;
+    if (!_isAgree) {
+      _showToast("Please agree to the terms", Colors.orange);
+      return;
+    }
 
-      // Prepare data to send in JSON format
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      String? phoneNumber = await secureStorage.read(key: "phone_number");
+
       var data = {
-        'agency_name': agencyName,
-        'full_name': ownerName,
-        'driver_address': address,
-        'email': email,
-        'second_number': secondNumber,
-        'driver_city': city,
-        'pin_code': pinCode,
+        'agency_name': agencyNameController.text.trim(),
+        'full_name': ownerNameController.text.trim(),
+        'driver_address': addressController.text.trim(),
+        'email': emailController.text.trim(),
+        'second_number': secondNumberController.text.trim(),
+        'driver_city': cityController.text.trim(),
+        'pin_code': pinCodeController.text.trim(),
         'phone_number': phoneNumber,
         'status': 'not car'
       };
 
-      // Send POST request
       try {
-        var response = await http.post(
-          Uri.parse('https://agnicarrental.com/driver2025/register_driver.php'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(data),
-        );
+        var response = await http
+            .post(
+              Uri.parse(ApiConfig.registerDriver),
 
-        // Handle response
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(data),
+            )
+            .timeout(const Duration(seconds: 15));
+
         if (response.statusCode == 200) {
-          // Successfully submitted the data
-          print('Form Submitted Successfully');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-              "Registration Successful!",
-              overflow: TextOverflow.ellipsis,
-            )),
-          );
-
-          // Reset the form fields
-          _formKey.currentState!.reset();
-          agencyNameController.clear();
-          ownerNameController.clear();
-          addressController.clear();
-          emailController.clear();
-          secondNumberController.clear();
-          pinCodeController.clear();
-          cityController.clear();
-          setState(() {
-            _isAgree = false; // Reset the agreement checkbox after submission
-          });
-
-          Navigator.push(
+          _showToast("Registration Successful!", Colors.green);
+          Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => CarFormPage()),
+            MaterialPageRoute(builder: (context) => const CarFormPage()),
           );
         } else {
-          // If the server didn't return a successful response
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-              "Error: ${response.statusCode}",
-            )),
-          );
+          _showToast("Error: ${response.statusCode}", Colors.red);
         }
       } catch (e) {
-        // If there's an error (e.g., no internet connection)
-        print('Error occurred: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text("Error submitting the form. Please try again.")),
-        );
+        _showToast("Network Error. Please try again.", Colors.red);
+      } finally {
+        setState(() => _isLoading = false);
       }
-    } else {
-      // If the user hasn't agreed to the terms
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please agree to the terms and conditions")),
-      );
     }
+  }
+
+  void _showToast(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // Prevents default navigation popping
-      onPopInvokedWithResult: (didPop, result) async {
-        // Added result parameter
-        if (!didPop) {
-          // Exit the app completely when back button is pressed
-          SystemNavigator.pop();
-        }
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) SystemNavigator.pop();
       },
       child: Scaffold(
+        backgroundColor: const Color(0xFFFBFBFD), // Soft designer white
         appBar: AppBar(
-          title: Text(
-            "Registration",
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: Colors.white),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: Colors.black, size: 20),
+            onPressed: () => SystemNavigator.pop(),
           ),
-          backgroundColor: Colors.blueGrey,
+          title: Text(
+            "VENDOR PORTAL",
+            style: GoogleFonts.poppins(
+              color: Colors.black,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+          ),
+          centerTitle: true,
         ),
-        body: SingleChildScrollView(
-          padding: EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Welcome!",
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey,
-                    height:
-                        1.5, // Makes the text more readable by increasing line height
-                  ),
-                ),
-                Text(
-                  "Welcome! to Agni Car Rental - Register Your Agency and Join Our Growing Network of Trusted Cab Owners. Empowering Your Business with Seamless Integration and Support for a Bright Future!",
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey,
-                    height:
-                        1.5, // Makes the text more readable by increasing line height
-                  ),
-                ),
-                SizedBox(height: 20),
-                _buildTextField(agencyNameController, "Agency Name"),
-                _buildTextField(ownerNameController, "Owner Name"),
-                _buildTextField(addressController, "Address"),
-                _buildTextField(
-                  emailController,
-                  "Email ID",
-                  keyboardType: TextInputType.emailAddress,
-                  isEmail: true,
-                ),
-                _buildTextField(
-                  secondNumberController,
-                  "Second Number",
-                  keyboardType: TextInputType.phone,
-                  isPhoneNumber: true,
-                ),
-                _buildTextField(cityController, "City"),
-                _buildTextField(
-                  pinCodeController,
-                  "Pin Code",
-                  keyboardType: TextInputType.number,
-                  isPinCode: true,
-                ),
-                // Declaration Checkbox
-                SizedBox(height: 20),
-                CheckboxListTile(
-                  title: Text(
-                    "I agree to the Terms and Conditions. My data will be used for future updates and contact.",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  value: _isAgree,
-                  onChanged: (bool? value) {
-                    setState(() {
-                      _isAgree = value!;
-                    });
-                  },
-                  controlAffinity: ListTileControlAffinity
-                      .leading, // To position the checkbox on the left
-                ),
-                SizedBox(height: 30),
-                Center(
-                  child: ElevatedButton(
-                    onPressed: _submitForm,
-                    style: ElevatedButton.styleFrom(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+        body: Center(
+          child: ConstrainedBox(
+            constraints:
+                const BoxConstraints(maxWidth: 500), // tablet/web optimization
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 25),
+                    _buildWhatsAppCard(),
+                    const SizedBox(height: 35),
+                    Text(
+                      "Business Registration",
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueGrey[900],
                       ),
-                      backgroundColor: Colors.blueGrey,
                     ),
-                    child: Text(
-                      "Submit",
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 18, color: Colors.white),
-                    ),
+                    const SizedBox(height: 20),
+                    _buildFormFields(),
+                    _buildTermsSection(),
+                    const SizedBox(height: 30),
+                    _buildSubmitButton(),
+                    const SizedBox(height: 50),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Welcome to Agni",
+          style: GoogleFonts.poppins(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Register your agency to start receiving bookings from our premium network.",
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: Colors.grey[600],
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWhatsAppCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (context) => NearbyTripsPage())),
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  height: 60,
+                  width: 60,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Image.asset('assets/WhatsApp_icon.png', scale: 12),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Live Marketplace",
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.black,
+                        ),
+                      ),
+                      Text(
+                        "View bookings from 500+ groups",
+                        style: GoogleFonts.poppins(
+                            fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
                   ),
                 ),
+                const CircleAvatar(
+                  backgroundColor: Colors.amber,
+                  radius: 18,
+                  child:
+                      Icon(Icons.chevron_right, color: Colors.black, size: 20),
+                )
               ],
             ),
           ),
@@ -226,56 +252,128 @@ class _OwnerPageState extends State<OwnerRegPage> {
     );
   }
 
+  Widget _buildFormFields() {
+    return Column(
+      children: [
+        _buildTextField(agencyNameController, "Agency Name",
+            Icons.business_center_outlined),
+        _buildTextField(
+            ownerNameController, "Full Name", Icons.person_outline_rounded),
+        _buildTextField(
+            addressController, "Office Address", Icons.map_outlined),
+        _buildTextField(
+            emailController, "Email Address", Icons.alternate_email_rounded,
+            keyboard: TextInputType.emailAddress, isEmail: true),
+        _buildTextField(secondNumberController, "Emergency Number",
+            Icons.phone_android_rounded,
+            keyboard: TextInputType.phone, isPhone: true, isOptional: true),
+        Row(
+          children: [
+            Expanded(
+                child: _buildTextField(
+                    cityController, "City", Icons.location_city_rounded)),
+            const SizedBox(width: 12),
+            Expanded(
+                child: _buildTextField(
+                    pinCodeController, "Pin Code", Icons.pin_drop_outlined,
+                    keyboard: TextInputType.number, isPin: true)),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildTextField(
     TextEditingController controller,
-    String label, {
-    TextInputType keyboardType = TextInputType.text,
+    String label,
+    IconData icon, {
+    TextInputType keyboard = TextInputType.text,
     bool isEmail = false,
-    bool isPhoneNumber = false,
-    bool isPinCode = false,
+    bool isPhone = false,
+    bool isPin = false,
+    bool isOptional = false,
   }) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.only(bottom: 18),
       child: TextFormField(
         controller: controller,
-        keyboardType: keyboardType,
-        maxLength: isPhoneNumber
+        keyboardType: keyboard,
+        maxLength: isPhone
             ? 10
-            : isPinCode
+            : isPin
                 ? 6
                 : null,
+        style:
+            const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87),
         decoration: InputDecoration(
+          counterText: "",
           labelText: label,
-          labelStyle: TextStyle(color: Colors.grey),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey),
+          labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+          prefixIcon: Icon(icon, color: Colors.amber[700], size: 20),
+          filled: true,
+          fillColor: Colors.grey[100],
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey),
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(color: Colors.amber, width: 1.5),
           ),
-          filled: true,
-          fillColor: Colors.white,
-          counterText: "",
+          errorStyle: const TextStyle(fontSize: 10),
         ),
         validator: (value) {
-          if (value == null || value.isEmpty) return "Enter $label";
-          if (isEmail &&
-              !RegExp(
-                r'^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]+$',
-              ).hasMatch(value)) {
-            return "Enter a valid Email";
+          if (!isOptional && (value == null || value.isEmpty))
+            return "Required field";
+          if (value != null && value.isNotEmpty) {
+            if (isEmail &&
+                !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value))
+              return "Invalid Email";
+            if (isPhone && value.length != 10) return "10 digits required";
+            if (isPin && value.length != 6) return "6 digits required";
           }
-          if (isPhoneNumber && !RegExp(r'^\d{10}$').hasMatch(value)) {
-            return "Enter a valid 10-digit phone number";
-          }
-          if (isPinCode && !RegExp(r'^\d{6}$').hasMatch(value)) {
-            return "Enter a valid 6-digit Pin Code";
-          }
-
           return null;
         },
+      ),
+    );
+  }
+
+  Widget _buildTermsSection() {
+    return CheckboxListTile(
+      value: _isAgree,
+      activeColor: Colors.amber,
+      onChanged: (val) => setState(() => _isAgree = val!),
+      title: Text(
+        "I agree to the Terms & Conditions and allow Agni to store my business data.",
+        style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600]),
+      ),
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 58,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _submitForm,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.amber,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        ),
+        child: _isLoading
+            ? const CircularProgressIndicator(color: Colors.black)
+            : Text(
+                "VERIFY & REGISTER",
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    letterSpacing: 1),
+              ),
       ),
     );
   }

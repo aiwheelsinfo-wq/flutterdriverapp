@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'api_config.dart';
+
 
 class DriverTripPage extends StatefulWidget {
   final String bookingId;
@@ -49,7 +51,8 @@ class _DriverTripPageState extends State<DriverTripPage> {
   Future<void> acceptTrip() async {
     if (storedPhoneNumber == null) return;
 
-    String apiUrl = "https://agnicarrental.com/driver2025/acceptBooking.php";
+    String apiUrl = ApiConfig.acceptBooking;
+
 
     try {
       var response = await http.post(

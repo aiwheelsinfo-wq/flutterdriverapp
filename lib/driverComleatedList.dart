@@ -3,6 +3,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
+import 'api_config.dart';
+
 
 class Drivercomleatedlist extends StatefulWidget {
   const Drivercomleatedlist({super.key});
@@ -42,7 +44,8 @@ class _InvoicelistState extends State<Drivercomleatedlist> {
       }
 
       String apiUrl =
-          "https://agnicarrental.com/driver2025/getCompleatedListForDriver.php?phone_number=$phoneNumber";
+          "${ApiConfig.getCompletedListForDriver}?phone_number=$phoneNumber";
+
 
       var response = await http.get(Uri.parse(apiUrl));
 

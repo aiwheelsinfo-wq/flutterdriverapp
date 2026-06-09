@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'booking_list.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'checkAndRoot.dart';
@@ -10,8 +9,8 @@ class SubmitSuccessPage extends StatefulWidget {
   final String message;
   final String? phoneNumber; // This can be null
 
-  SubmitSuccessPage(
-      {this.message = "Submission Successful!", this.phoneNumber});
+  const SubmitSuccessPage(
+      {super.key, this.message = "Submission Successful!", this.phoneNumber});
 
   @override
   State<SubmitSuccessPage> createState() => _SubmitSuccessPageState();

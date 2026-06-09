@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'booking_list.dart';
+import 'api_config.dart';
 
 class UpdateDocumentPage extends StatefulWidget {
   final String docType;
   final String id;
 
-  UpdateDocumentPage({required this.docType, required this.id});
+  const UpdateDocumentPage(
+      {super.key, required this.docType, required this.id});
 
   @override
   _UpdateDocumentPageState createState() => _UpdateDocumentPageState();
@@ -43,8 +45,7 @@ class _UpdateDocumentPageState extends State<UpdateDocumentPage> {
   }
 
   void submitUpdate() async {
-    final uri = Uri.parse(
-        "https://agnicarrental.com/driver2025/change_document_expaired_date.php");
+    final uri = Uri.parse(ApiConfig.changeDocumentExpiredDate);
 
     final response = await http.post(
       uri,

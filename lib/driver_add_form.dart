@@ -5,9 +5,20 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'checkAndRoot.dart';
+import 'api_config.dart';
+
+
+// --- CUSTOM FORMATTER FOR FORCED UPPERCASE ---
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    return newValue.copyWith(text: newValue.text.toUpperCase());
+  }
+}
 
 class DriverFormPage extends StatefulWidget {
-  // Phone number stored in variable
+  const DriverFormPage({super.key});
 
   @override
   _DriverFormPageState createState() => _DriverFormPageState();
@@ -17,35 +28,50 @@ class _DriverFormPageState extends State<DriverFormPage> {
   final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
   final ScrollController _scrollController = ScrollController();
   final _formKey = GlobalKey<FormState>();
+
   late Map<String, TextEditingController> _controllers;
+
   String? storedNumber;
   String? driverCode;
-  String? inputNumber;
-
-  String? driverFullName;
-  String? driverEmail;
-  String? driverAddress;
-  String? pinCode;
-  String? driverCity;
-  String? agencyName;
-  String? secondNumber;
-
   bool driverFrom = false;
-  bool newdriverForm = false;
+  bool newDriverForm = false;
   bool driverCodeField = false;
-  bool driverCodeNotCorrect = false;
   bool addDriverSuccess = false;
   bool driverForm = true;
   bool addNewBtn = false;
   bool nextStepBtn = false;
-  bool _isAgree = false;
   bool nextBtn = false;
-
+  bool _isAgree = false;
   final Set<String> _uniqueValues = {};
+  bool isPhoneLocked = false;
+  bool isDriverCodeLocked = false;
+  String? searchStatusMessage;
+  Color searchStatusColor = Colors.grey;
+
+  // Professional Amber Palette
+  static const Color primaryAmber = Color(0xFFFFB300);
+  static const Color accentAmber = Color(0xFFFF8F00);
+  static const Color charcoal = Color(0xFF263238);
+  static const Color bgLight = Color(0xFFFFFBF0);
+
+  final List<String> indianLicenseTypes = [
+    'LMV (LIGHT MOTOR VEHICLE - CARS/JEEPS)',
+    'LMV-TR (TRANSPORT - COMMERCIAL TAXIS)',
+    'LMV-GV (GOODS CARRIER - DELIVERY VANS)',
+    'TRANS (TRANSPORT - COMPREHENSIVE)',
+    'HPMV (HEAVY PASSENGER VEHICLE - BUS)',
+    'HGMV (HEAVY GOODS VEHICLE - TRUCK)',
+  ];
 
   @override
   void initState() {
     super.initState();
+    _initializeControllers();
+    fetchDriverStatus();
+    _showInitialHint();
+  }
+
+  void _initializeControllers() {
     _controllers = {
       'phone_number': TextEditingController(),
       'driver_code': TextEditingController(),
@@ -61,815 +87,741 @@ class _DriverFormPageState extends State<DriverFormPage> {
       'adhaar_card_no': TextEditingController(),
       'pan_card_no': TextEditingController(),
     };
-    fetchDriverStatus();
-    Future.delayed(Duration(seconds: 2), () {
-      // Show SnackBar automatically after loading is complete
+  }
+
+  void _showInitialHint() {
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            "Fill this page first, and go forward..",
-            overflow: TextOverflow.ellipsis,
-          ),
-          duration: Duration(seconds: 2),
+          content: const Text("Enter Phone Number to start verification"),
+          backgroundColor: charcoal,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     });
   }
+
+  // ------------------- API CALLS -------------------
 
   Future<void> fetchDriverStatus() async {
     storedNumber = await secureStorage.read(key: "phone_number");
-    print("Fetching driver details...");
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://agnicarrental.com/driver2025/register_driver.php?phone_number=$storedNumber',
-        ),
-      );
+      final response = await http.get(Uri.parse(
+          '${ApiConfig.registerDriver}?phone_number=$storedNumber'));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print("Response data: $data");
-
-        final List<dynamic> driversData = data['driversdata'];
-        final driver = driversData.isNotEmpty ? driversData[0] : null;
-
-        if (driver != null) {
-          print("Driver Status: ${driver['status']}");
-
-          // Correct condition to check driver status
-          if (driver['status'] != 'not driver') {
-            // Assuming 'active' is the required status
-            setState(() {
-              nextBtn = true;
-              print("Button enabled");
-            });
-          } else {
-            setState(() {
-              nextBtn = false;
-            });
-            print("Driver is not active.");
-          }
-        } else {
-          print("No driver data found.");
-          setState(() {
-            nextBtn = false;
-          });
+        final List<dynamic> driversData = data['driversdata'] ?? [];
+        if (driversData.isNotEmpty &&
+            driversData[0]['status'] != 'not driver') {
+          setState(() => nextBtn = true);
         }
-      } else {
-        throw Exception('Failed to load driver details');
       }
     } catch (e) {
-      setState(() {
-        nextBtn = false; // Disable the button on error
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-      print("Error fetching driver details: $e");
+      debugPrint("Status Fetch Error: $e");
     }
   }
 
-  void clearAllControllers() {
-    _controllers.forEach((key, controller) {
-      controller.clear(); // Clear each TextEditingController
+  Future<void> fetchDriverDetails(String phoneNumber) async {
+    setState(() {
+      searchStatusMessage = "Searching for driver details...";
+      searchStatusColor = Colors.orange;
     });
+
+    try {
+      final response = await http.get(Uri.parse(
+          "${ApiConfig.driverDetailsFetching}?phone_number=$phoneNumber"));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data["status"] == "success") {
+          final driverData = data["data"];
+          setState(() {
+            _controllers['full_name']?.text =
+                (driverData["full_name"] ?? '').toUpperCase();
+            _controllers['email']?.text =
+                (driverData['email'] ?? '').toUpperCase();
+            _controllers['driver_address']?.text =
+                (driverData['driver_address'] ?? '').toUpperCase();
+            _controllers['pin_code']?.text = driverData['pin_code'] ?? '';
+            _controllers['driver_city']?.text =
+                (driverData['driver_city'] ?? '').toUpperCase();
+            _controllers['license_no']?.text =
+                (driverData['license_no'] ?? '').toUpperCase();
+            _controllers['license_doe']?.text = driverData['license_doe'] ?? '';
+            _controllers['license_type']?.text =
+                (driverData['license_type'] ?? '').toUpperCase();
+            _controllers['adhaar_card_no']?.text =
+                driverData['adhaar_card_no'] ?? '';
+            _controllers['pan_card_no']?.text =
+                (driverData['pan_card_no'] ?? '').toUpperCase();
+            _controllers['date_of_birth']?.text =
+                driverData['date_of_birth'] ?? '';
+
+            if (driverCode != null) {
+              _controllers['driver_code']?.text = driverCode!;
+            }
+
+            searchStatusMessage = "Existing driver found. Details loaded automatically.";
+            searchStatusColor = Colors.green;
+            isPhoneLocked = true;
+            isDriverCodeLocked = true;
+            newDriverForm = true;
+          });
+        } else {
+          setState(() {
+            searchStatusMessage = "No existing driver found. Please enter driver details.";
+            searchStatusColor = Colors.blueGrey;
+            isPhoneLocked = false;
+            isDriverCodeLocked = false;
+            driverCodeField = false;
+            newDriverForm = true;
+          });
+        }
+      } else {
+        setState(() {
+          searchStatusMessage = "No existing driver found. Please enter driver details.";
+          searchStatusColor = Colors.blueGrey;
+          isPhoneLocked = false;
+          isDriverCodeLocked = false;
+          driverCodeField = false;
+          newDriverForm = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Details Fetch Error: $e");
+      setState(() {
+        searchStatusMessage = "No existing driver found. Please enter driver details.";
+        searchStatusColor = Colors.blueGrey;
+        isPhoneLocked = false;
+        isDriverCodeLocked = false;
+        driverCodeField = false;
+        newDriverForm = true;
+      });
+    }
   }
 
-  void _agreeValidation() {
-    if (_isAgree) {
-      if (driverCodeField) {
-        _submitForm('join');
+  Future<void> fetchDriverCodeForPhone(String phoneNumber) async {
+    setState(() {
+      searchStatusMessage = "Checking phone number...";
+      searchStatusColor = Colors.orange;
+      driverCodeField = false;
+      newDriverForm = false;
+    });
+
+    try {
+      final response = await http.get(Uri.parse(
+          "${ApiConfig.driverCodeFetching}?phone_number=$phoneNumber"));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            driverCode = data['driver_code'];
+            driverCodeField = true;
+            newDriverForm = false;
+            searchStatusMessage = "Existing driver found. Please enter Driver Code to load details.";
+            searchStatusColor = Colors.orange;
+          });
+        } else {
+          setState(() {
+            driverCode = null;
+            driverCodeField = false;
+            newDriverForm = true;
+            searchStatusMessage = "No existing driver found. Please enter driver details.";
+            searchStatusColor = Colors.blueGrey;
+            isPhoneLocked = false;
+            isDriverCodeLocked = false;
+          });
+        }
       } else {
-        _submitForm('filled');
+        setState(() {
+          driverCode = null;
+          driverCodeField = false;
+          newDriverForm = true;
+          searchStatusMessage = "No existing driver found. Please enter driver details.";
+          searchStatusColor = Colors.blueGrey;
+          isPhoneLocked = false;
+          isDriverCodeLocked = false;
+        });
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please agree to the terms and conditions")),
-      );
+    } catch (e) {
+      debugPrint("Code Fetch Error: $e");
+      setState(() {
+        driverCode = null;
+        driverCodeField = false;
+        newDriverForm = true;
+        searchStatusMessage = "No existing driver found. Please enter driver details.";
+        searchStatusColor = Colors.blueGrey;
+        isPhoneLocked = false;
+        isDriverCodeLocked = false;
+      });
     }
   }
 
   Future<void> statusChangeNotFill() async {
-    String? storedNumber = await secureStorage.read(key: "phone_number");
-    String apiUrl =
-        "https://agnicarrental.com/driver2025/status_change_filled.php";
-
+    storedNumber = await secureStorage.read(key: "phone_number");
     try {
       var response = await http.post(
-        Uri.parse(apiUrl),
+        Uri.parse(ApiConfig.statusChangeFilled),
         body: {"stored_number": storedNumber},
       );
 
-      var jsonResponse = jsonDecode(response.body);
-      if (jsonResponse["success"] == true) {
-        // Wait for 10 minutes before hiding the loader
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => checAbdRoot()),
-        );
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Your selection is granted",
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        );
+      if (jsonDecode(response.body)["success"] == true) {
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (_) => const checAbdRoot()));
       }
     } catch (e) {
-      print("Error ending trip: $e");
+      debugPrint("Status Change Error: $e");
     }
   }
 
-  Future<void> checkPhoneNumber() async {
-    inputNumber = _controllers['phone_number']?.text.trim() ?? "";
-    storedNumber = await secureStorage.read(key: "phone_number");
+  // ------------------- FORM LOGIC -------------------
 
-    if (inputNumber == storedNumber) {
+  void _onPhoneChanged(String value) async {
+    if (value.length == 10) {
+      storedNumber = await secureStorage.read(key: "phone_number");
+      if (value == storedNumber) {
+        setState(() {
+          driverCodeField = false;
+          newDriverForm = true;
+        });
+        fetchDriverDetails(value);
+      } else {
+        fetchDriverCodeForPhone(value);
+      }
+    } else {
       setState(() {
-        driverFrom = true;
+        newDriverForm = false;
         driverCodeField = false;
-        newdriverForm = true;
-        fetchDriverDetails(inputNumber);
-      });
-    } else {
-      setState(() {
-        driverCodeField = true;
-        fetchDriverDetails(inputNumber);
-        fetchDriverCode();
+        searchStatusMessage = null;
+        isPhoneLocked = false;
+        isDriverCodeLocked = false;
       });
     }
   }
 
-  Future<void> fetchDriverDetails(phoneNumber) async {
-    final response = await http.get(
-      Uri.parse(
-        "https://agnicarrental.com/driver2025/driver_details_fetching.php?phone_number=$phoneNumber",
-      ),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-
-      if (data["status"] == "success") {
-        setState(() {
-          // Update text controllers with data from the map
-          _controllers['full_name']?.text = data["data"]["full_name"] ??
-              ''; // Ensure text controller is set with data
-          _controllers['email']?.text = data["data"]['email'] ?? '';
-          _controllers['driver_address']?.text =
-              data["data"]['driver_address'] ?? '';
-          _controllers['pin_code']?.text =
-              data["data"]['pin_code'] ?? ''; // Fixed empty key issue
-          _controllers['driver_city']?.text = data["data"]['driver_city'] ?? '';
-          _controllers['agency_name']?.text = data["data"]['agency_name'] ?? '';
-          _controllers['license_no']?.text = data["data"]['license_no'] ?? '';
-          _controllers['license_doe']?.text = convertDateToBackend(
-            data["data"]['license_doe'] ?? '',
-          );
-          _controllers['license_type']?.text =
-              data["data"]['license_type'] ?? '';
-          _controllers['adhaar_card_no']?.text =
-              data["data"]['adhaar_card_no'] ?? '';
-          _controllers['pan_card_no']?.text = data["data"]['pan_card_no'] ?? '';
-          _controllers['date_of_birth']?.text = convertDateToBackend(
-            data["data"]['date_of_birth'] ?? '',
-          );
-
-          // Assuming driverCode is a variable you want to set
-          // driverCode = data['driver_code']; // Safely set driverCode
-        });
+  void _onDriverCodeChanged(String value) {
+    if (value.length == 4) {
+      if (driverCode != null && value == driverCode) {
+        fetchDriverDetails(_controllers['phone_number']!.text);
       } else {
-        setState(() {});
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("Invalid Driver Code")));
       }
-    } else {
-      setState(() {});
     }
   }
 
-  Future<void> fetchDriverCode() async {
-    String inputNumber = _controllers['phone_number']?.text.trim() ?? '';
-
-    final url = Uri.parse(
-      "https://agnicarrental.com/driver2025/driver_code_fetching.php?phone_number=$inputNumber",
-    );
+  String _formatToBackend(String date) {
+    if (date.isEmpty) return "";
     try {
-      final response = await http.get(url);
-      final data = json.decode(response.body);
-
-      if (data['status'] == 'success') {
-        setState(() {
-          driverCode = data['driver_code'];
-
-          print("objecttttt: ${data['driver_code']}");
-        });
-      } else {
-        setState(() {});
-      }
-    } catch (e) {}
-  }
-
-  InputDecoration _buildInputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: Colors.grey[600]),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey[300]!),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey[300]!),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.blue[700]!, width: 2),
-      ),
-      filled: true,
-      fillColor: Colors.grey[50],
-      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    );
-  }
-
-  String? _dateValidator(String? value) {
-    if (value == null || value.isEmpty) return 'This field is required';
-
-    final RegExp dateRegExp = RegExp(r'^\d{2}-\d{2}-\d{4}$');
-    if (!dateRegExp.hasMatch(value)) {
-      return 'Enter date in DD-MM-YYYY format';
-    }
-
-    try {
-      final parts = value.split('-');
-      final day = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      final year = int.parse(parts[2]);
-
-      if (month < 1 || month > 12) return 'Month must be between 01 and 12';
-      if (day < 1 || day > 31) return 'Day must be between 01 and 31';
-      if (year < 1900 || year > 2100)
-        return 'Year must be between 1900 and 2100';
-
-      final date = DateTime(year, month, day);
-      if (date.day != day || date.month != month || date.year != year) {
-        return 'Invalid date';
-      }
-      return null;
+      final parts = date.split('-');
+      return '${parts[2]}-${parts[1]}-${parts[0]}';
     } catch (e) {
-      return 'Invalid date';
+      return date;
     }
-  }
-
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: Duration(milliseconds: 5000),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  String convertDateToBackend(String date) {
-    final parts = date.split('-');
-    return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
   Future<void> _submitForm(String status) async {
-    _scrollToTop();
-    _uniqueValues.clear();
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      try {
-        final data = {
-          'phone_number': _controllers['phone_number']!.text.isEmpty
-              ? null
-              : _controllers['phone_number']!.text,
-          'full_name': _controllers['full_name']!.text.isEmpty
-              ? null
-              : _controllers['full_name']!.text,
-          'email': _controllers['email']!.text.isEmpty
-              ? null
-              : _controllers['email']!.text,
-          'driver_address': _controllers['driver_address']!.text.isEmpty
-              ? null
-              : _controllers['driver_address']!.text,
-          'driver_city': _controllers['driver_city']!.text.isEmpty
-              ? null
-              : _controllers['driver_city']!.text,
-          'date_of_birth': _controllers['date_of_birth']!.text.isEmpty
-              ? null
-              : convertDateToBackend(_controllers['date_of_birth']!.text),
-          'pin_code': _controllers['pin_code']!.text.isEmpty
-              ? null
-              : _controllers['pin_code']!.text,
-          'license_no': _controllers['license_no']!.text.isEmpty
-              ? null
-              : _controllers['license_no']!.text,
-          'license_doe': _controllers['license_doe']!.text.isEmpty
-              ? null
-              : convertDateToBackend(_controllers['license_doe']!.text),
-          'license_type': _controllers['license_type']!.text.isEmpty
-              ? null
-              : _controllers['license_type']!.text,
-          'adhaar_card_no': _controllers['adhaar_card_no']!.text.isEmpty
-              ? null
-              : _controllers['adhaar_card_no']!.text,
-          'pan_card_no': _controllers['pan_card_no']!.text.isEmpty
-              ? null
-              : _controllers['pan_card_no']!.text,
-          'status': status,
-          'vendor_number': storedNumber,
-        };
+    if (!_formKey.currentState!.validate()) return;
+    if (!_isAgree) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Please agree to terms")));
+      return;
+    }
 
-        final url = Uri.parse(
-          'https://agnicarrental.com/driver2025/register_driver.php',
-        );
-        final response = await http.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(data),
-        );
+    final data = {
+      'phone_number': _controllers['phone_number']!.text,
+      'full_name': _controllers['full_name']!.text,
+      'email': _controllers['email']!.text,
+      'driver_address': _controllers['driver_address']!.text,
+      'driver_city': _controllers['driver_city']!.text,
+      'date_of_birth': _formatToBackend(_controllers['date_of_birth']!.text),
+      'pin_code': _controllers['pin_code']!.text,
+      'license_no': _controllers['license_no']!.text,
+      'license_doe': _formatToBackend(_controllers['license_doe']!.text),
+      'license_type': _controllers['license_type']!.text,
+      'adhaar_card_no': _controllers['adhaar_card_no']!.text,
+      'pan_card_no': _controllers['pan_card_no']!.text,
+      'status': status,
+      'vendor_number': storedNumber,
+    };
 
-        if (response.statusCode == 200) {
-          clearAllControllers();
-          final result = jsonDecode(response.body);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result['message'] ?? 'Driver updated successfully',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          );
+    try {
+      final resp = await http.post(
+        Uri.parse(ApiConfig.registerDriver),
 
-          setState(() {
-            driverForm = false;
-            newdriverForm = false;
-            addNewBtn = true;
-            nextStepBtn = true;
-            addDriverSuccess = true;
-            driverCodeField = false;
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Server error: ${response.statusCode}')),
-          );
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(data),
+      );
+
+      if (resp.statusCode == 200) {
+        setState(() {
+          driverForm = false;
+          addDriverSuccess = true;
+          addNewBtn = true;
+          nextStepBtn = true;
+        });
+        _scrollController.animateTo(0,
+            duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
-  final List<String> fuelTypes = [
-    'Petrol',
-    'Petrol & CNG',
-    'Diesel',
-    'EV',
-    'Hybrid',
-  ];
+  // ------------------- UI COMPONENTS -------------------
 
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false, // Prevents default navigation popping
-      onPopInvokedWithResult: (didPop, result) async {
-        // Added result parameter
-        if (!didPop) {
-          // Exit the app completely when back button is pressed
-          SystemNavigator.pop();
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("Driver Registration", overflow: TextOverflow.ellipsis),
-              nextBtn
-                  ? TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => checAbdRoot()),
-                        );
-                      },
-                      child: Text(
-                        "Not Now",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    )
-                  : SizedBox(),
-            ],
-          ),
-          elevation: 0,
-          backgroundColor: Colors.blueGrey[700],
-          foregroundColor: Colors.white,
-        ),
-        body: SingleChildScrollView(
-          controller: _scrollController,
-          child: Container(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(30.0),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 20.0),
-                child: Column(
-                  children: [
-                    if (addDriverSuccess)
-                      Column(
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.all(
-                              30,
-                            ), // Add padding for better spacing
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: Colors.green,
-                                width: 2,
-                              ), // Green border with 2px width
-                              borderRadius: BorderRadius.circular(
-                                8,
-                              ), // Optional: Rounded corners
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.check,
-                                  color: Colors.green,
-                                  size: 30.0,
-                                ),
-                                Text(
-                                  "Your Driver is Added Successfully",
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 3,
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 50),
-                        ],
-                      ),
-                    if (addNewBtn && nextStepBtn)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 20.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blueGrey,
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.all(16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  driverForm = true;
-                                  addNewBtn = false;
-                                  nextStepBtn = false;
-                                  addDriverSuccess = false;
-                                  fetchDriverDetails('');
-                                });
-                                // Action you want to perform when the button is pressed
-                              },
-                              child: SizedBox(
-                                width: MediaQuery.of(context).size.width *
-                                    0.3, // 50% of the screen width
-                                child: Center(
-                                  child: Text(
-                                    "Add New",
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blueGrey,
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.all(16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () {
-                                statusChangeNotFill();
-                                // Action you want to perform when the button is pressed
-                              },
-                              child: SizedBox(
-                                width: MediaQuery.of(context).size.width *
-                                    0.3, // 50% of the screen width
-                                child: Center(
-                                  child: Text(
-                                    "Finish",
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (driverForm)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Add Your Driver",
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 40),
-                            textAlign: TextAlign.start,
-                          ),
-                          Text(
-                            "Let's Drive Your Business Forward,  Register Your Driver with Us and Get Ready to Hit the Road!",
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Divider(),
-                          SizedBox(height: 30),
-                          Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildTextField(
-                                  'Driver Phone Number',
-                                  'phone_number',
-                                  keyboardType: TextInputType.number,
-                                ),
-                                if (driverCodeField)
-                                  _buildTextField(
-                                    'Driver Code',
-                                    'driver_code',
-                                    keyboardType: TextInputType.number,
-                                  ),
-                                if (newdriverForm)
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      _buildSectionTitle(
-                                        'Personal Information',
-                                      ),
-                                      _buildTextField('Full Name', 'full_name'),
-                                      _buildTextField('Email', 'email'),
-                                      _buildTextField(
-                                        'Address',
-                                        'driver_address',
-                                      ),
-                                      _buildTextField('City', 'driver_city'),
-                                      _buildTextField(
-                                        'Pin Code',
-                                        'pin_code',
-                                        keyboardType: TextInputType.number,
-                                      ),
-                                      _buildDateField(
-                                        'Date of Birth',
-                                        'date_of_birth',
-                                      ),
-                                      _buildSectionTitle('Identification'),
-                                      _buildTextField(
-                                        'Aadhaar Card No',
-                                        'adhaar_card_no',
-                                        isUnique: true,
-                                        keyboardType: TextInputType.number,
-                                      ),
-                                      _buildTextField(
-                                        'PAN Card No',
-                                        'pan_card_no',
-                                        isUnique: true,
-                                      ),
-                                      _buildSectionTitle('License Details'),
-                                      _buildTextField(
-                                        'License No',
-                                        'license_no',
-                                        isUnique: true,
-                                      ),
-                                      _buildDateField(
-                                        'License DOE',
-                                        'license_doe',
-                                      ),
-                                      _buildTextField(
-                                        'License Type',
-                                        'license_type',
-                                      ),
-                                      SizedBox(height: 20),
-                                      CheckboxListTile(
-                                        title: Text(
-                                          "I agree to the Terms and Conditions. "
-                                          "My data will be used for future updates and contact.",
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                        value: _isAgree,
-                                        onChanged: (bool? value) {
-                                          setState(() {
-                                            _isAgree = value!;
-                                          });
-                                        },
-                                        controlAffinity: ListTileControlAffinity
-                                            .leading, // To position the checkbox on the left
-                                      ),
-                                      SizedBox(height: 24),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          _agreeValidation();
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blue[700],
-                                          foregroundColor: Colors.white,
-                                          padding: EdgeInsets.symmetric(
-                                            vertical: 16,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          minimumSize: Size(
-                                            double.infinity,
-                                            50,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'Update',
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(fontSize: 16),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: EdgeInsets.only(top: 16, bottom: 8),
-      child: Text(
-        title,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.blue[700],
-        ),
-        textAlign: TextAlign.start,
-      ),
-    );
-  }
-
-  Widget _buildTextField(
-    String label,
-    String controllerKey, {
-    TextInputType? keyboardType,
+  Widget _buildField({
+    required String label,
+    required String apiKey,
+    String? hint,
+    IconData? icon,
+    bool isDate = false,
+    bool isRequired = true,
     bool isUnique = false,
+    TextInputType? keyboard,
+    Function(String)? onChanged,
+    int? maxLength,
+    bool readOnly = false,
   }) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextFormField(
-        maxLength: controllerKey == 'adhaar_card_no'
-            ? 12
-            : controllerKey == 'pan_card_no'
-                ? 10
-                : controllerKey == 'pin_code'
-                    ? 6
-                    : controllerKey == 'phone_number'
-                        ? 10
-                        : controllerKey == 'driver_code'
-                            ? 4
-                            : null,
-        controller: _controllers[controllerKey],
-        onChanged: controllerKey == 'phone_number'
-            ? (value) {
-                if (value.length == 10) {
-                  checkPhoneNumber();
-                } else {
-                  setState(() {
-                    driverFrom = false;
-                    newdriverForm = false;
-                    driverCodeField = false;
-                    _controllers['driver_code']?.clear();
-                  });
-                }
-              }
-            : controllerKey == 'driver_code'
-                ? (value) {
-                    if (value.length == 4) {
-                      String drivercodeinput =
-                          _controllers['driver_code']?.text.trim() ?? '';
-                      if (drivercodeinput == driverCode) {
-                        setState(() {
-                          newdriverForm = true;
-                        });
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("Please enter a valid driver code"),
-                          ),
-                        );
-                      }
-                    } else {
-                      setState(() {
-                        driverFrom = false;
-                        newdriverForm = false;
-                      });
-                    }
-                  }
-                : null,
-        decoration: _buildInputDecoration(label),
-        keyboardType: keyboardType,
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'This field is required';
-          }
-          if (controllerKey == 'phone_number') {
-            if (!RegExp(r'^\d{10}$').hasMatch(value)) {
-              return 'Phone number must be exactly 10 digits';
-            }
-            // Check if matches stored number
-          }
-          if (controllerKey == 'pin_code') {
-            if (!RegExp(r'^\d{6}$').hasMatch(value)) {
-              return 'Phone number must be exactly 6 digits';
-            }
-          }
-          if (controllerKey == 'adhaar_card_no') {
-            if (!RegExp(r'^\d{12}$').hasMatch(value)) {
-              return 'Aadhaar Number must be exactly 12 digits';
-            }
-          }
-          if (controllerKey == 'pan_card_no') {
-            if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(value)) {
-              return 'It must be in format: ABCDE1234F';
-            }
-          }
-
-          if (isUnique && _uniqueValues.contains(value)) {
-            return 'This $label is already used';
-          }
-          if (isUnique) {
-            _uniqueValues.add(value);
-          }
+        controller: _controllers[apiKey],
+        readOnly: readOnly || isDate,
+        enabled: !readOnly,
+        onTap: isDate ? () => _pickDate(apiKey) : null,
+        onChanged: onChanged,
+        maxLength: maxLength,
+        keyboardType: keyboard,
+        textCapitalization: TextCapitalization.characters,
+        inputFormatters: [UpperCaseTextFormatter()],
+        decoration: InputDecoration(
+          labelText: label.toUpperCase(),
+          hintText: hint?.toUpperCase(),
+          prefixIcon: Icon(icon ?? Icons.edit, color: readOnly ? Colors.grey.shade400 : primaryAmber, size: 20),
+          counterText: "",
+          filled: true,
+          fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300)),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300)),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryAmber, width: 2)),
+          disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade200)),
+        ),
+        validator: (val) {
+          if (isRequired && (val == null || val.isEmpty)) return "REQUIRED";
           return null;
         },
       ),
     );
   }
 
-  Widget _buildDateField(String label, String controllerKey) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8),
-      child: TextFormField(
-        controller: _controllers[controllerKey],
-        decoration: _buildInputDecoration(label).copyWith(
-          hintText: 'DD-MM-YYYY (e.g., 28-03-2025)',
-          hintStyle: TextStyle(color: Colors.grey[400]),
-        ),
-        readOnly: true,
-        onTap: () async {
-          DateTime? pickedDate = await showDatePicker(
-            context: context,
-            initialDate: DateTime.now(),
-            firstDate: DateTime(1900),
-            lastDate: DateTime(2100),
-          );
-
-          if (pickedDate != null) {
-            String formattedDate = DateFormat('dd-MM-yyyy').format(pickedDate);
-            _controllers[controllerKey]!.text = formattedDate;
-          }
-        },
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'This field is required';
-          }
-          return _dateValidator(value);
-        },
+  Future<void> _pickDate(String key) async {
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1950),
+      lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: primaryAmber)),
+        child: child!,
       ),
+    );
+    if (picked != null) {
+      setState(() =>
+          _controllers[key]!.text = DateFormat('dd-MM-yyyy').format(picked));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: bgLight,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: charcoal),
+            onPressed: () => Navigator.pop(context)),
+        title: const Text("DRIVER ONBOARDING",
+            style: TextStyle(
+                color: charcoal, fontWeight: FontWeight.bold, fontSize: 16)),
+        actions: [
+          if (nextBtn)
+            TextButton(
+                onPressed: statusChangeNotFill,
+                child: const Text("SKIP",
+                    style: TextStyle(
+                        color: accentAmber, fontWeight: FontWeight.bold))),
+        ],
+      ),
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                children: [
+                  if (addDriverSuccess) _buildSuccessCard(),
+                  if (addNewBtn) _buildActionButtons(),
+                  if (driverForm) _buildVerificationAndForm(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessCard() {
+    return Container(
+      padding: const EdgeInsets.all(
+          16), // Slightly reduced padding for tighter screens
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.green.shade200)),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 28),
+          const SizedBox(width: 12),
+          const Expanded(
+            // Essential: prevents text from pushing Row out of bounds
+            child: Text(
+              "DRIVER REGISTERED SUCCESSFULLY!",
+              style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16),
+              softWrap: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerificationAndForm() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          _buildVerificationHeader(),
+          _buildField(
+            label: "Driver Phone Number",
+            apiKey: "phone_number",
+            icon: Icons.phone_android,
+            maxLength: 10,
+            keyboard: TextInputType.phone,
+            onChanged: _onPhoneChanged,
+            readOnly: isPhoneLocked,
+          ),
+          if (driverCodeField)
+            _buildField(
+              label: "Enter 4-Digit Driver Code",
+              apiKey: "driver_code",
+              icon: Icons.lock_outline,
+              maxLength: 4,
+              keyboard: TextInputType.number,
+              onChanged: _onDriverCodeChanged,
+              readOnly: isDriverCodeLocked,
+            ),
+          if (searchStatusMessage != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: searchStatusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: searchStatusColor.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    searchStatusColor == Colors.green ? Icons.check_circle : Icons.info,
+                    color: searchStatusColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      searchStatusMessage!,
+                      style: TextStyle(
+                        color: searchStatusColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  if (isPhoneLocked) ...[
+                    const SizedBox(width: 10),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          isPhoneLocked = false;
+                          isDriverCodeLocked = false;
+                          searchStatusMessage = null;
+                          _controllers['phone_number']!.clear();
+                          _controllers['driver_code']!.clear();
+                          _controllers['full_name']!.clear();
+                          _controllers['email']!.clear();
+                          _controllers['driver_address']!.clear();
+                          _controllers['pin_code']!.clear();
+                          _controllers['driver_city']!.clear();
+                          _controllers['license_no']!.clear();
+                          _controllers['license_doe']!.clear();
+                          _controllers['license_type']!.clear();
+                          _controllers['adhaar_card_no']!.clear();
+                          _controllers['pan_card_no']!.clear();
+                          _controllers['date_of_birth']!.clear();
+                          newDriverForm = false;
+                          driverCodeField = false;
+                        });
+                      },
+                      child: const Text(
+                        "RESET",
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 10),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            child: newDriverForm ? _buildMainForm() : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerificationHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Verify Driver",
+              style: TextStyle(
+                  fontSize: 24, fontWeight: FontWeight.bold, color: charcoal)),
+          Text("Connect your fleet. Verify your driver's identity to continue.",
+              style: TextStyle(color: charcoal.withOpacity(0.6))),
+          const Divider(height: 30, thickness: 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle("Personal Details", Icons.person_outline),
+        _buildField(
+            label: "Full Name",
+            apiKey: "full_name",
+            hint: "As per Adhaar",
+            icon: Icons.person),
+        _buildField(
+            label: "Email Address",
+            apiKey: "email",
+            hint: "example@mail.com",
+            icon: Icons.email,
+            keyboard: TextInputType.emailAddress),
+        _buildField(
+            label: "Address", apiKey: "driver_address", icon: Icons.map),
+        Row(
+          children: [
+            Expanded(child: _buildField(label: "City", apiKey: "driver_city")),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _buildField(
+                    label: "Pin Code",
+                    apiKey: "pin_code",
+                    maxLength: 6,
+                    keyboard: TextInputType.number)),
+          ],
+        ),
+        _buildField(
+            label: "Date of Birth",
+            apiKey: "date_of_birth",
+            isDate: true,
+            icon: Icons.cake),
+        _buildSectionTitle("Identification", Icons.badge_outlined),
+        _buildField(
+            label: "Adhaar Number",
+            apiKey: "adhaar_card_no",
+            maxLength: 12,
+            keyboard: TextInputType.number,
+            icon: Icons.fingerprint),
+        _buildField(
+            label: "PAN Card Number",
+            apiKey: "pan_card_no",
+            maxLength: 10,
+            icon: Icons.credit_card),
+        _buildSectionTitle("License Details", Icons.drive_eta_outlined),
+        _buildField(
+            label: "License Number",
+            apiKey: "license_no",
+            icon: Icons.assignment_ind),
+        _buildLicenseDropdown(),
+        _buildField(
+            label: "License Expiry Date", apiKey: "license_doe", isDate: true),
+        const SizedBox(height: 20),
+        _buildAgreementSection(),
+        const SizedBox(height: 30),
+        _buildSubmitButton(),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 25, bottom: 10),
+      child: Row(
+        children: [
+          Icon(icon, color: accentAmber, size: 20),
+          const SizedBox(width: 8),
+          Text(title.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: charcoal,
+                  letterSpacing: 1)),
+          const SizedBox(width: 10),
+          const Expanded(child: Divider()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLicenseDropdown() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: DropdownButtonFormField<String>(
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: "LICENSE CATEGORY",
+          prefixIcon: const Icon(Icons.category, color: primaryAmber),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        items: indianLicenseTypes
+            .map((e) => DropdownMenuItem(
+                value: e, child: Text(e, style: const TextStyle(fontSize: 12))))
+            .toList(),
+        onChanged: (v) =>
+            setState(() => _controllers['license_type']!.text = v ?? ""),
+        validator: (v) => (v == null || v.isEmpty) ? "REQUIRED" : null,
+      ),
+    );
+  }
+
+  Widget _buildAgreementSection() {
+    return CheckboxListTile(
+      activeColor: primaryAmber,
+      contentPadding: EdgeInsets.zero,
+      title: const Text(
+          "I declare that all driver details and documents provided are genuine.",
+          style: TextStyle(fontSize: 12, color: charcoal)),
+      value: _isAgree,
+      onChanged: (v) => setState(() => _isAgree = v ?? false),
+      controlAffinity: ListTileControlAffinity.leading,
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+            backgroundColor: charcoal,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15))),
+        onPressed: () => _submitForm(driverCodeField ? 'join' : 'filled'),
+        child: const Text("REGISTER & UPDATE DRIVER",
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1)),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Use parent constraints instead of double.infinity
+        double btnWidth = constraints.maxWidth;
+
+        return Column(
+          children: [
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                  minimumSize: Size(btnWidth, 50),
+                  side: const BorderSide(color: accentAmber)),
+              onPressed: () => setState(() {
+                _initializeControllers();
+                driverForm = true;
+                addDriverSuccess = false;
+                addNewBtn = false;
+                newDriverForm = false;
+              }),
+              child: const Text("ADD ANOTHER DRIVER",
+                  style: TextStyle(
+                      color: accentAmber, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 15),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  minimumSize: Size(btnWidth, 50),
+                  backgroundColor: primaryAmber),
+              onPressed: statusChangeNotFill,
+              child: const Text("FINISH & GO TO HOME",
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
     );
   }
 
   @override
   void dispose() {
-    _controllers.forEach((_, controller) => controller.dispose());
+    _controllers.forEach((k, v) => v.dispose());
     super.dispose();
   }
 }

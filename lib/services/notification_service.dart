@@ -51,9 +51,7 @@ class NotificationService {
       'High Importance Notifications', // Name
       description: 'This channel is used for important notifications.',
       importance: Importance.high,
-
       playSound: true,
-      // Add custom sound
     );
 
     await _localNotifications
@@ -61,26 +59,25 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
-    // Android initialization settings
+    // Android initialization
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS initialization settings
-    final DarwinInitializationSettings initializationSettingsDarwin =
+    // iOS initialization (⚠️ no onDidReceiveLocalNotification in v19)
+    const DarwinInitializationSettings initializationSettingsDarwin =
         DarwinInitializationSettings(
-      onDidReceiveLocalNotification: (id, title, body, payload) async {
-        print("iOS Local Notification Received: $title - $body");
-      },
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
     );
 
-    // Combine settings for both platforms
-    final InitializationSettings initializationSettings =
+    // Combine both
+    const InitializationSettings initializationSettings =
         InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsDarwin,
     );
 
-    // Initialize local notifications
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (details) {

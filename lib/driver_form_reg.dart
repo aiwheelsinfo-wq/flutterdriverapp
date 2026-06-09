@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'driver_reg_success.dart';
+import 'api_config.dart';
+
 
 class DriverFormPage extends StatefulWidget {
   final String? phoneNumber; // Accept phone number for editing
 
-  DriverFormPage({this.phoneNumber});
+  const DriverFormPage({super.key, this.phoneNumber});
 
   @override
   _DriverFormPageState createState() => _DriverFormPageState();
@@ -18,7 +19,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
   final ScrollController _scrollController = ScrollController();
   final _formKey = GlobalKey<FormState>();
   late Map<String, TextEditingController> _controllers;
-  TextEditingController _fuelTypeController = TextEditingController();
+  final TextEditingController _fuelTypeController = TextEditingController();
   final Set<String> _uniqueValues = {};
   bool isLoading = true;
   bool _isDropdownOpen = false;
@@ -71,8 +72,9 @@ class _DriverFormPageState extends State<DriverFormPage> {
   Future<void> fetchDriverDetails() async {
     try {
       final response = await http.get(
-        Uri.parse('https://agnicarrental.com/driver2025/register_driver.php'),
+        Uri.parse(ApiConfig.registerDriver),
       );
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final driver = (data['driversdata'] as List).firstWhere(
@@ -182,8 +184,9 @@ class _DriverFormPageState extends State<DriverFormPage> {
       // Validate date ranges
       if (month < 1 || month > 12) return 'Month must be between 01 and 12';
       if (day < 1 || day > 31) return 'Day must be between 01 and 31';
-      if (year < 1900 || year > 2100)
+      if (year < 1900 || year > 2100) {
         return 'Year must be between 1900 and 2100';
+      }
 
       // Check if the date is valid
       final date = DateTime(year, month, day);
@@ -307,9 +310,8 @@ class _DriverFormPageState extends State<DriverFormPage> {
         };
 
         // Update driver details instead of adding new
-        final url = Uri.parse(
-          'https://agnicarrental.com/driver2025/register_driver.php',
-        );
+        final url = Uri.parse(ApiConfig.registerDriver);
+
         final response = await http.post(
           url,
           headers: {'Content-Type': 'application/json'},
@@ -360,6 +362,10 @@ class _DriverFormPageState extends State<DriverFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
             widget.phoneNumber != null ? 'Driver Registration' : 'Edit Driver'),
         elevation: 0,
@@ -613,7 +619,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
                 ),
               ],
             );
-          }).toList(),
+          }),
         ],
       ),
     );

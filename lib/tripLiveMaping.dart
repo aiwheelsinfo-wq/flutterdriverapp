@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart'; // Essential for flutter_map
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geocoding/geocoding.dart';
@@ -7,209 +8,129 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:location/location.dart' as loc;
 
 import 'endingKmInputPage.dart';
+import 'api_config.dart';
+
 
 class TripLiveMapping extends StatefulWidget {
   final String bookingId;
   final String phoneNumber;
 
-  const TripLiveMapping(
-      {Key? key, required this.bookingId, required this.phoneNumber})
-      : super(key: key);
+  const TripLiveMapping({
+    super.key,
+    required this.bookingId,
+    required this.phoneNumber,
+  });
 
   @override
-  _TripLiveMappingState createState() => _TripLiveMappingState();
+  State<TripLiveMapping> createState() => _TripLiveMappingState();
 }
 
 class _TripLiveMappingState extends State<TripLiveMapping> {
   final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
   final loc.Location location = loc.Location();
+  final MapController _mapController = MapController();
 
-  GoogleMapController? _mapController;
   LatLng? fromLatLng;
   LatLng? toLatLng;
   LatLng? driverLatLng;
 
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
+  List<LatLng> routePoints = [];
+  bool isLoading = true;
+  bool followDriver = true;
+  double driverSpeed = 0.0;
+
+  String fromAddress = "Loading...";
+  String toAddress = "Loading...";
 
   @override
   void initState() {
     super.initState();
-    _loadRouteAndDriver();
-    _startLiveLocationUpdate();
+    _initialize();
   }
 
+  Future<void> _initialize() async {
+    await _loadRouteAndDriver();
+    await _startLiveLocationUpdate();
+  }
+
+  // Same logic as your provided code
   Future<void> _loadRouteAndDriver() async {
     try {
-      // 1. Fetch from_address and to_address
       final bookingRes = await http.post(
-        Uri.parse(
-            "https://agnicarrental.com/driver2025/trip_live_mapping_backend.php"),
-        body: {
-          'action': 'get_booking_details',
-          'booking_id': widget.bookingId,
-        },
+        Uri.parse(ApiConfig.tripLiveMappingBackend),
+        body: {'action': 'get_booking_details', 'booking_id': widget.bookingId},
       );
 
       final bookingData = json.decode(bookingRes.body);
-      if (!bookingData['success']) throw Exception("Booking fetch failed.");
+      if (!bookingData['success']) throw Exception("Booking fetch failed");
 
-      final fromAddress = bookingData['from_address'];
-      final toAddress = bookingData['to_address'];
+      fromAddress = bookingData['from_address'];
+      toAddress = bookingData['to_address'];
 
-      // 2. Convert address to LatLng
-      final fromLocations = await locationFromAddress(fromAddress);
-      fromLatLng =
-          LatLng(fromLocations[0].latitude, fromLocations[0].longitude);
+      final fromLocs = await locationFromAddress(fromAddress);
+      final toLocs = await locationFromAddress(toAddress);
 
-      final toLocations = await locationFromAddress(toAddress);
-      fromLatLng = LatLng(toLocations[0].latitude, toLocations[0].longitude);
+      fromLatLng = LatLng(fromLocs[0].latitude, fromLocs[0].longitude);
+      toLatLng = LatLng(toLocs[0].latitude, toLocs[0].longitude);
 
-      // 3. Get driver phone number
-
-      // 4. Get driver location
       final driverRes = await http.post(
-        Uri.parse(
-            "https://agnicarrental.com/driver2025/trip_live_mapping_backend.php"),
+        Uri.parse(ApiConfig.tripLiveMappingBackend),
         body: {
           'action': 'get_driver_location',
-          'phone_number': widget.phoneNumber,
+          'phone_number': widget.phoneNumber
         },
       );
 
       final driverData = json.decode(driverRes.body);
-      if (!driverData['success']) throw Exception("Driver location failed.");
-
       driverLatLng = LatLng(driverData['latitude'], driverData['longitude']);
 
-      // 5. Handle route drawing only if toAddress is provided
-      if (toAddress.isNotEmpty) {
-        final toLocations = await locationFromAddress(toAddress);
-        toLatLng = LatLng(toLocations[0].latitude, toLocations[0].longitude);
+      await _fetchRouteOSRM(fromLatLng!, toLatLng!);
 
-        await _fetchRouteFromGoogleDirectionsAPI(fromLatLng!, toLatLng!);
-
-        _markers.add(Marker(markerId: MarkerId("to"), position: toLatLng!));
-      }
-
-      // 6. Update map with markers
-      setState(() {
-        _markers.add(Marker(markerId: MarkerId("from"), position: fromLatLng!));
-        _markers
-            .add(Marker(markerId: MarkerId("driver"), position: driverLatLng!));
-      });
-
-      _mapController
-          ?.animateCamera(CameraUpdate.newLatLngZoom(driverLatLng!, 14));
-    } catch (e) {}
+      setState(() => isLoading = false);
+      _mapController.move(driverLatLng!, 15);
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
   }
 
-  Future<void> _fetchRouteFromGoogleDirectionsAPI(
-      LatLng from, LatLng to) async {
-    final apiKey =
-        "AIzaSyCZkOB0WSoPjjdf8gRUj9GcXXJuWvpj5Mo"; // Replace with your actual API key
+  Future<void> _fetchRouteOSRM(LatLng from, LatLng to) async {
     final url = Uri.parse(
-      "https://maps.googleapis.com/maps/api/directions/json?origin=${from.latitude},${from.longitude}&destination=${to.latitude},${to.longitude}&key=$apiKey",
-    );
-
+        "http://router.project-osrm.org/route/v1/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson");
     final response = await http.get(url);
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      if (data['status'] == 'OK') {
-        final routes = data['routes'];
-        if (routes.isNotEmpty) {
-          final overviewPolyline = routes[0]['overview_polyline']['points'];
-          final List<LatLng> polylineCoordinates =
-              _decodePolyline(overviewPolyline);
-          setState(() {
-            _polylines.add(Polyline(
-              polylineId: PolylineId("route"),
-              points: polylineCoordinates,
-              color: Colors.blue,
-              width: 5,
-            ));
-          });
-        }
-      }
-    } else {
-      throw Exception('Failed to load directions');
+      final coordinates = data['routes'][0]['geometry']['coordinates'] as List;
+      setState(() {
+        routePoints =
+            coordinates.map((coord) => LatLng(coord[1], coord[0])).toList();
+      });
     }
-  }
-
-  List<LatLng> _decodePolyline(String encoded) {
-    List<LatLng> polylineCoordinates = [];
-    int index = 0;
-    int len = encoded.length;
-    int lat = 0;
-    int lng = 0;
-
-    while (index < len) {
-      int shift = 0;
-      int result = 0;
-      int byte;
-      do {
-        byte = encoded.codeUnitAt(index++) - 63;
-        result |= (byte & 0x1F) << shift;
-        shift += 5;
-      } while (byte >= 0x20);
-      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
-
-      shift = 0;
-      result = 0;
-      do {
-        byte = encoded.codeUnitAt(index++) - 63;
-        result |= (byte & 0x1F) << shift;
-        shift += 5;
-      } while (byte >= 0x20);
-      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
-
-      polylineCoordinates.add(LatLng(lat / 1E5, lng / 1E5));
-    }
-
-    return polylineCoordinates;
   }
 
   Future<void> _startLiveLocationUpdate() async {
-    bool serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await location.requestService();
-      if (!serviceEnabled) return;
-    }
-
-    loc.PermissionStatus permissionGranted = await location.hasPermission();
-    if (permissionGranted == loc.PermissionStatus.denied) {
-      permissionGranted = await location.requestPermission();
-      if (permissionGranted != loc.PermissionStatus.granted) return;
-    }
-
-    location.changeSettings(interval: 10000); // 10 seconds
-
+    location.changeSettings(
+        interval: 8000, accuracy: loc.LocationAccuracy.high);
     location.onLocationChanged.listen((loc.LocationData currentLocation) async {
-      final phoneNumber = await secureStorage.read(key: "phone_number");
-
-      if (phoneNumber != null &&
-          currentLocation.latitude != null &&
+      if (currentLocation.latitude != null &&
           currentLocation.longitude != null) {
+        setState(() {
+          driverSpeed = currentLocation.speed ?? 0.0;
+          driverLatLng =
+              LatLng(currentLocation.latitude!, currentLocation.longitude!);
+        });
+
+        if (followDriver)
+          _mapController.move(driverLatLng!, _mapController.camera.zoom);
+
         await http.post(
-          Uri.parse("https://agnicarrental.com/driver2025/update_location.php"),
+          Uri.parse(ApiConfig.updateLocation),
+
           body: {
-            'driver_id': phoneNumber,
+            'driver_id': widget.phoneNumber,
             'latitude': currentLocation.latitude.toString(),
             'longitude': currentLocation.longitude.toString(),
           },
         );
-
-        setState(() {
-          driverLatLng =
-              LatLng(currentLocation.latitude!, currentLocation.longitude!);
-          _markers.removeWhere((m) => m.markerId.value == "driver");
-          _markers.add(
-              Marker(markerId: MarkerId("driver"), position: driverLatLng!));
-        });
-
-        _mapController?.animateCamera(CameraUpdate.newLatLng(driverLatLng!));
       }
     });
   }
@@ -217,51 +138,231 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Live Trip Mapping")),
-      body: Column(
-        children: [
-          // Map view
-          Expanded(
-            child: fromLatLng == null || driverLatLng == null
-                ? Center(child: CircularProgressIndicator())
-                : GoogleMap(
-                    onMapCreated: (controller) => _mapController = controller,
-                    markers: _markers,
-                    polylines: _polylines,
-                    initialCameraPosition: CameraPosition(
-                      target: driverLatLng!,
-                      zoom: 14,
+      body: isLoading
+          ? Center(
+              child: CircularProgressIndicator(color: Colors.amber.shade600))
+          : Stack(
+              children: [
+                // 1. MAP
+                FlutterMap(
+                  mapController: _mapController,
+                  options:
+                      MapOptions(initialCenter: driverLatLng!, initialZoom: 15),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png", // Professional "Light" map style
+                      subdomains: const ['a', 'b', 'c'],
                     ),
-                  ),
-          ),
+                    PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: routePoints,
+                          strokeWidth: 5,
+                          color: Colors.amber.withOpacity(0.7),
+                        )
+                      ],
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        _buildMarker(
+                            fromLatLng!, Icons.circle, Colors.green, 12),
+                        _buildMarker(
+                            toLatLng!, Icons.location_on, Colors.redAccent, 35),
+                        Marker(
+                          point: driverLatLng!,
+                          width: 60,
+                          height: 60,
+                          child: _buildDriverMarker(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
 
-          // Trip End Button
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(vertical: 15),
-            color: Colors.green,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                padding: EdgeInsets.symmetric(vertical: 20),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EndingKmInputPage(
-                      bookingId: widget.bookingId,
-                    ),
+                // 2. TOP BAR (Booking ID & Speed)
+                Positioned(
+                  top: 50,
+                  left: 20,
+                  right: 20,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildHeaderChip("ID: #${widget.bookingId}"),
+                      _buildSpeedometer(),
+                    ],
                   ),
-                );
-              },
-              child: Text(
-                'End Trip',
-                style: TextStyle(fontSize: 20, color: Colors.white),
+                ),
+
+                // 3. FLOATING CONTROLS
+                // Positioned(
+                //   right: 20,
+                //   bottom: 320,
+                //   child: Column(
+                //     children: [
+                //       _buildMapActionBtn(
+                //         icon: followDriver
+                //             ? Icons.gps_fixed
+                //             : Icons.gps_not_fixed,
+                //         onTap: () =>
+                //             setState(() => followDriver = !followDriver),
+                //       ),
+                //       const SizedBox(height: 10),
+                //       _buildMapActionBtn(
+                //         icon: Icons.my_location,
+                //         onTap: () => _mapController.move(driverLatLng!, 16),
+                //       ),
+                //     ],
+                //   ),
+                // ),
+
+                // 4. MODERN TRIP CARD
+                _buildTripDetailCard(),
+              ],
+            ),
+    );
+  }
+
+  // ================= UI HELPER WIDGETS =================
+
+  Marker _buildMarker(LatLng point, IconData icon, Color color, double size) {
+    return Marker(
+      point: point,
+      width: 40,
+      height: 40,
+      child: Icon(icon, color: color, size: size),
+    );
+  }
+
+  Widget _buildDriverMarker() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+      ),
+      padding: const EdgeInsets.all(8),
+      child: const Icon(Icons.navigation, color: Colors.black, size: 30),
+    );
+  }
+
+  Widget _buildHeaderChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+      ),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildSpeedometer() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Text(
+        "${(driverSpeed * 3.6).toStringAsFixed(0)} km/h",
+        style:
+            const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildMapActionBtn(
+      {required IconData icon, required VoidCallback onTap}) {
+    return FloatingActionButton.small(
+      heroTag: null,
+      backgroundColor: Colors.white,
+      onPressed: onTap,
+      child: Icon(icon, color: Colors.black87),
+    );
+  }
+
+  Widget _buildTripDetailCard() {
+    return Positioned(
+      bottom: 20,
+      left: 15,
+      right: 15,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Timeline view for addresses
+            Row(
+              children: [
+                Column(
+                  children: [
+                    const Icon(Icons.radio_button_checked,
+                        color: Colors.green, size: 18),
+                    Container(
+                        width: 2, height: 30, color: Colors.grey.shade300),
+                    const Icon(Icons.location_on,
+                        color: Colors.redAccent, size: 18),
+                  ],
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(fromAddress,
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.black54),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 25),
+                      Text(toAddress,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 30),
+            // Action Button
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          EndingKmInputPage(bookingId: widget.bookingId),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber.shade600,
+                  foregroundColor: Colors.black87,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                ),
+                child: const Text("FINISH TRIP",
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2)),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

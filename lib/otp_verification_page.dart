@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'SavePhonePage.dart'; // Import SavePhonePage
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
+import 'api_config.dart';
+
 
 class OTPVerificationPage extends StatefulWidget {
   final String phoneNumber;
@@ -27,7 +29,8 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
   Future<void> updateFcmToken(String phoneNumber) async {
     String? fcmToken = await FirebaseMessaging.instance.getToken();
     final response = await http.post(
-      Uri.parse('https://agnicarrental.com/driver2025/update_fcm_token.php'),
+      Uri.parse(ApiConfig.updateFcmToken),
+
       body: {
         'phone_number': phoneNumber,
         'fcm_token': fcmToken,

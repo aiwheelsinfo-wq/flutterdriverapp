@@ -1,4 +1,5 @@
 {
     "Codegeex.GenerationPreference": "automatic",
-    "Codegeex.SidebarUI.LanguagePreference": "English"
+    "Codegeex.SidebarUI.LanguagePreference": "English",
+    "java.configuration.updateBuildConfiguration": "disabled"
 }

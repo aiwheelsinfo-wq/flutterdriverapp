@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'api_config.dart';
 import 'account_selection_page.dart';
 import 'booking_list.dart';
 import 'car_reg_form.dart';
 import 'driver_add_form.dart';
-import 'driver_reg_success.dart';
 import 'join_sub_driver_page.dart';
 import 'owner_reg_page.dart';
 import 'sub_driver_page.dart';
@@ -35,7 +35,7 @@ class _MyWidgetState extends State<checAbdRoot> {
     try {
       final response = await http.get(
         Uri.parse(
-          "https://agnicarrental.com/driver2025/driver_details_fetching.php?phone_number=$storedNumber",
+          "${ApiConfig.driverDetailsFetching}?phone_number=$storedNumber",
         ),
       );
 

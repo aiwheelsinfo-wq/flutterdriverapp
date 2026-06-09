@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'driver_reg_success.dart';
 import 'trip_accepting.dart';
 import 'driver_form_reg.dart';
+import 'api_config.dart';
+
 
 class RegCheckingPage extends StatefulWidget {
   final String? phoneNumber;
@@ -44,7 +46,8 @@ class _RegCheckingPageState extends State<RegCheckingPage> {
   }
 
   Future<void> _checkRegistrationStatus(String phoneNumber) async {
-    String apiUrl = "https://agnicarrental.com/driver2025/regStatusCheck.php";
+    String apiUrl = ApiConfig.regStatusCheck;
+
 
     try {
       var response = await http.post(

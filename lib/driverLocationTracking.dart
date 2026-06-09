@@ -5,16 +5,15 @@ import 'dart:convert';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:location/location.dart' as loc;
+import 'api_config.dart';
 
-import 'endingKmInputPage.dart';
 
 class Driverlocationtracking extends StatefulWidget {
   final String bookingId;
   final String phoneNumber;
 
   const Driverlocationtracking(
-      {Key? key, required this.bookingId, required this.phoneNumber})
-      : super(key: key);
+      {super.key, required this.bookingId, required this.phoneNumber});
 
   @override
   _TripLiveMappingState createState() => _TripLiveMappingState();
@@ -29,8 +28,8 @@ class _TripLiveMappingState extends State<Driverlocationtracking> {
   LatLng? toLatLng;
   LatLng? driverLatLng;
 
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
+  final Set<Marker> _markers = {};
+  final Set<Polyline> _polylines = {};
 
   @override
   void initState() {
@@ -43,8 +42,8 @@ class _TripLiveMappingState extends State<Driverlocationtracking> {
     try {
       // 1. Fetch from_address and to_address
       final bookingRes = await http.post(
-        Uri.parse(
-            "https://agnicarrental.com/driver2025/trip_live_mapping_backend.php"),
+        Uri.parse(ApiConfig.tripLiveMappingBackend),
+
         body: {
           'action': 'get_booking_details',
           'booking_id': widget.bookingId,
@@ -66,8 +65,8 @@ class _TripLiveMappingState extends State<Driverlocationtracking> {
 
       // 4. Get driver location
       final driverRes = await http.post(
-        Uri.parse(
-            "https://agnicarrental.com/driver2025/trip_live_mapping_backend.php"),
+        Uri.parse(ApiConfig.tripLiveMappingBackend),
+
         body: {
           'action': 'get_driver_location',
           'phone_number': widget.phoneNumber,
@@ -195,7 +194,8 @@ class _TripLiveMappingState extends State<Driverlocationtracking> {
           currentLocation.latitude != null &&
           currentLocation.longitude != null) {
         await http.post(
-          Uri.parse("https://agnicarrental.com/driver2025/update_location.php"),
+          Uri.parse(ApiConfig.updateLocation),
+
           body: {
             'driver_id': phoneNumber,
             'latitude': currentLocation.latitude.toString(),

@@ -1,22 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'car_reg_form.dart';
 import 'driverComleatedList.dart';
 import 'driverLocationTracking.dart';
 import 'driver_add_form.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+import 'whatsapp_booking_list.dart';
+
 import 'owner_account.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'startingKmInputPage.dart';
 import 'tripLiveMaping.dart'; // For listEquals
 import 'package:url_launcher/url_launcher.dart';
+import 'api_config.dart';
+
 
 class JoinSubDriverPage extends StatefulWidget {
+  const JoinSubDriverPage({super.key});
+
   @override
   State<JoinSubDriverPage> createState() => _SubDriverPageState();
 }
@@ -31,8 +38,8 @@ class _SubDriverPageState extends State<JoinSubDriverPage> {
   String? storedPhoneNumber;
   Timer? _timer;
   String driverCode = "";
-  DateTime _selectedDay = DateTime.now();
-  DateTime _focusedDay = DateTime.now();
+  final DateTime _selectedDay = DateTime.now();
+  final DateTime _focusedDay = DateTime.now();
 
   @override
   void initState() {
@@ -51,6 +58,14 @@ class _SubDriverPageState extends State<JoinSubDriverPage> {
     super.dispose();
   }
 
+  final List<String> imageUrls = [
+    ApiConfig.add1Webp,
+    ApiConfig.add2Webp,
+    ApiConfig.add3Webp,
+    ApiConfig.add4Webp,
+
+  ];
+
   Future<void> _loadPhoneNumberAndStartTimer() async {
     storedPhoneNumber = await secureStorage.read(key: "phone_number");
     await _fetchAndUpdateBookings(); // Initial fetch
@@ -66,7 +81,8 @@ class _SubDriverPageState extends State<JoinSubDriverPage> {
   Future<void> _fetchDriverCode() async {
     storedPhoneNumber = await secureStorage.read(key: "phone_number");
     final String apiUrl =
-        "https://agnicarrental.com/driver2025/driver_code_fetching.php?phone_number=$storedPhoneNumber";
+        "${ApiConfig.driverCodeFetching}?phone_number=$storedPhoneNumber";
+
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -99,10 +115,10 @@ class _SubDriverPageState extends State<JoinSubDriverPage> {
     print("Phone Number :$storedPhoneNumber");
     try {
       final response = await http.post(
-        Uri.parse(
-            'https://agnicarrental.com/driver2025/get_bookings_for_driver.php'),
+        Uri.parse(ApiConfig.getBookingsForDriver),
         body: {'phone_number': storedPhoneNumber},
       );
+
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -143,7 +159,8 @@ class _SubDriverPageState extends State<JoinSubDriverPage> {
 
   Future<void> _updateLocationToServer(
       double latitude, double longitude) async {
-    String url = 'https://agnicarrental.com/driver2025/update_location.php';
+    String url = ApiConfig.updateLocation;
+
     try {
       final response = await http.post(
         Uri.parse(url),
@@ -287,6 +304,7 @@ class _SubDriverPageState extends State<JoinSubDriverPage> {
                           builder: (context) => StartingKmInputPage(
                             bookingId: booking['booking_id'].toString(),
                             savedOtp: booking['otp'].toString(),
+                            triptype: booking['trip_type'].toString(),
                           ),
                         ),
                       );
@@ -385,32 +403,202 @@ class _SubDriverPageState extends State<JoinSubDriverPage> {
               ),
             ),
           ),
+          Center(
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => NearbyTripsPage()),
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(16),
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // WhatsApp Logo
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.asset(
+                            'assets/WhatsApp_icon.png',
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+
+                        // Text & Booking Info
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "WhatsApp Booking",
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                "From 500+ WhatsApp groups",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(255, 34, 197, 40),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  "Click to view bookings",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Join Button below
+                const SizedBox(height: 4),
+                Container(
+                  margin: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 2), // margin outside
+                  child: SizedBox(
+                    width: double.infinity, // takes full available width
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final Uri url = Uri.parse(
+                          "https://chat.whatsapp.com/IJ6sNowb9nO775kGM4Dzq3?mode=ems_copy_c",
+                        );
+                        if (!await launchUrl(url,
+                            mode: LaunchMode.externalApplication)) {
+                          throw Exception("Could not launch $url");
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.group,
+                        color: Colors.white,
+                      ),
+                      label: const Text("Join WhatsApp Group"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            const Color.fromARGB(236, 158, 235, 249),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12), // inside padding
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           SizedBox(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _fetchAndUpdateBookings,
               child: _isLoading
                   ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text("Not bookings available"),
+                        // 🔹 No Bookings Image in a Card
+                        Card(
+                          elevation: 6,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          child: GestureDetector(
+                            onTap: () async {
+                              final Uri url = Uri.parse("https://oluber.com/");
+                              if (!await launchUrl(url,
+                                  mode: LaunchMode.externalApplication)) {
+                                throw Exception("Could not launch $url");
+                              }
+                            },
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.asset(
+                                "assets/oluber_add.png", // your asset
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
                         ),
-                        TableCalendar(
-                          firstDay: DateTime.utc(2020, 1, 1),
-                          lastDay: DateTime.utc(2025, 12, 31),
-                          focusedDay: _focusedDay,
-                          selectedDayPredicate: (day) =>
-                              isSameDay(_selectedDay, day),
-                          onDaySelected: (selectedDay, focusedDay) {
-                            setState(() {
-                              _selectedDay = selectedDay;
-                              _focusedDay = focusedDay;
-                            });
-                          },
-                          onPageChanged: (focusedDay) {
-                            _focusedDay = focusedDay;
-                          },
+
+                        const SizedBox(height: 20),
+
+                        // 🔹 Slider below "No Bookings"
+                        Expanded(
+                          child: Container(
+                            margin: const EdgeInsets.only(
+                                bottom: 10), // bottom margin
+                            child: CarouselSlider(
+                              options: CarouselOptions(
+                                height: 160.0,
+                                autoPlay: true,
+                                enlargeCenterPage: true,
+                                aspectRatio: 16 / 9,
+                                autoPlayInterval: const Duration(seconds: 3),
+                                autoPlayCurve: Curves.fastOutSlowIn,
+                                enableInfiniteScroll: true,
+                              ),
+                              items: imageUrls.map((url) {
+                                return ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: CachedNetworkImage(
+                                    imageUrl: url,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    placeholder: (context, url) => const Center(
+                                        child: CircularProgressIndicator()),
+                                    errorWidget: (context, url, error) =>
+                                        const Center(
+                                            child: Icon(Icons.error,
+                                                color: Colors.red)),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
                         ),
                       ],
                     )

@@ -4,13 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:location/location.dart' as location;
+import 'api_config.dart';
+
 
 class ShowMap extends StatefulWidget {
   final String fromAddress;
   final String toAddress;
   final String phoneNumber;
 
-  ShowMap({
+  const ShowMap({
     super.key,
     required this.fromAddress,
     required this.toAddress,
@@ -28,11 +30,11 @@ class _ShowMapState extends State<ShowMap> {
   LatLng _toLocation = LatLng(0, 0);
   LatLng? _currentLocation;
 
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
+  final Set<Marker> _markers = {};
+  final Set<Polyline> _polylines = {};
   List<LatLng> _polylineCoordinates = [];
 
-  location.Location _location = location.Location();
+  final location.Location _location = location.Location();
   location.LocationData? _currentPosition;
 
   String googleAPIKey =
@@ -198,7 +200,8 @@ class _ShowMapState extends State<ShowMap> {
 
   Future<void> _updateLocationToServer(
       double latitude, double longitude) async {
-    final url = 'https://agnicarrental.com/driver2025/update_location.php';
+    final url = ApiConfig.updateLocation;
+
 
     await http.post(
       Uri.parse(url),
