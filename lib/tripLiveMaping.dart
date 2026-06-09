@@ -49,8 +49,33 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
   }
 
   Future<void> _initialize() async {
+    await _checkLocationPermission();
     await _loadRouteAndDriver();
     await _startLiveLocationUpdate();
+  }
+
+  Future<void> _checkLocationPermission() async {
+    try {
+      bool serviceEnabled = await location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) {
+          debugPrint("Location services are disabled.");
+          return;
+        }
+      }
+
+      loc.PermissionStatus permissionGranted = await location.hasPermission();
+      if (permissionGranted == loc.PermissionStatus.denied) {
+        permissionGranted = await location.requestPermission();
+        if (permissionGranted != loc.PermissionStatus.granted) {
+          debugPrint("Location permission denied.");
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint("Location permission check error: $e");
+    }
   }
 
   // Same logic as your provided code
@@ -108,31 +133,41 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
   }
 
   Future<void> _startLiveLocationUpdate() async {
-    location.changeSettings(
-        interval: 8000, accuracy: loc.LocationAccuracy.high);
-    location.onLocationChanged.listen((loc.LocationData currentLocation) async {
-      if (currentLocation.latitude != null &&
-          currentLocation.longitude != null) {
-        setState(() {
-          driverSpeed = currentLocation.speed ?? 0.0;
-          driverLatLng =
-              LatLng(currentLocation.latitude!, currentLocation.longitude!);
-        });
-
-        if (followDriver)
-          _mapController.move(driverLatLng!, _mapController.camera.zoom);
-
-        await http.post(
-          Uri.parse(ApiConfig.updateLocation),
-
-          body: {
-            'driver_id': widget.phoneNumber,
-            'latitude': currentLocation.latitude.toString(),
-            'longitude': currentLocation.longitude.toString(),
-          },
-        );
+    try {
+      loc.PermissionStatus permissionGranted = await location.hasPermission();
+      if (permissionGranted != loc.PermissionStatus.granted) {
+        debugPrint("Cannot start location updates: permission not granted.");
+        return;
       }
-    });
+
+      location.changeSettings(
+          interval: 8000, accuracy: loc.LocationAccuracy.high);
+      location.onLocationChanged.listen((loc.LocationData currentLocation) async {
+        if (currentLocation.latitude != null &&
+            currentLocation.longitude != null) {
+          setState(() {
+            driverSpeed = currentLocation.speed ?? 0.0;
+            driverLatLng =
+                LatLng(currentLocation.latitude!, currentLocation.longitude!);
+          });
+
+          if (followDriver)
+            _mapController.move(driverLatLng!, _mapController.camera.zoom);
+
+          await http.post(
+            Uri.parse(ApiConfig.updateLocation),
+
+            body: {
+              'driver_id': widget.phoneNumber,
+              'latitude': currentLocation.latitude.toString(),
+              'longitude': currentLocation.longitude.toString(),
+            },
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint("Live location update error: $e");
+    }
   }
 
   @override

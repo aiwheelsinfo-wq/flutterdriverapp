@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import 'api_config.dart';
+import 'checkAndRoot.dart';
 
 class CompleatedList extends StatefulWidget {
   const CompleatedList({super.key});
@@ -144,17 +145,38 @@ class _CompleatedListState extends State<CompleatedList> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: bgLight,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: charcoal, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text("History",
+    return WillPopScope(
+      onWillPop: () async {
+        if (Navigator.canPop(context)) {
+          return true;
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const checAbdRoot()),
+          );
+          return false;
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgLight,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: charcoal, size: 20),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const checAbdRoot()),
+                );
+              }
+            },
+          ),
+          title: const Text("History",
             style: TextStyle(
                 color: charcoal, fontWeight: FontWeight.bold, fontSize: 18)),
       ),
@@ -177,8 +199,9 @@ class _CompleatedListState extends State<CompleatedList> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSearchBar() {
     return Container(
