@@ -45,6 +45,9 @@ class _CarFormPageState extends State<CarFormPage> {
   bool nextBtn = false;
   String? phoneNumber;
 
+  List<String> _carCategories = ['SEDAN', 'ERTIGA', 'INNOVA', 'CRYSTA'];
+  String? _selectedCarCategory;
+
   // Professional Amber Theme Palette
   static const Color primaryAmber = Color(0xFFFFB300);
   static const Color accentAmber = Color(0xFFFF8F00);
@@ -80,6 +83,26 @@ class _CarFormPageState extends State<CarFormPage> {
     super.initState();
     _initializeControllers();
     fetchDriverDetails();
+    fetchCarCategories();
+  }
+
+  Future<void> fetchCarCategories() async {
+    try {
+      final response = await http.get(Uri.parse(ApiConfig.getCarCategories));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          final List<dynamic> cats = data['categories'] ?? [];
+          if (cats.isNotEmpty) {
+            setState(() {
+              _carCategories = cats.map((e) => e.toString().toUpperCase()).toList();
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Fetch Car Categories Error: $e");
+    }
   }
 
   void _initializeControllers() {
@@ -392,10 +415,18 @@ class _CarFormPageState extends State<CarFormPage> {
           Row(
             children: [
               Expanded(
-                  child: _buildField(
-                      label: "Vehicle Type",
-                      apiKey: "vehicle_type",
-                      hint: "Ex: SEDAN")),
+                child: _buildDropdown(
+                  label: "Vehicle Type",
+                  items: _carCategories,
+                  value: _selectedCarCategory,
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedCarCategory = v;
+                      _controllers['vehicle_type']!.text = v ?? '';
+                    });
+                  },
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
                   child: _buildField(

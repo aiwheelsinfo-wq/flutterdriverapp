@@ -28,6 +28,7 @@ class ApiConfig {
   static const String getBookingsForDriver = "$driverPath/get_bookings_for_driver.php";
   static const String getAppVersion = "$driverPath/getAppVersion.php";
   static const String getBookings = "$driverPath/getBookings.php";
+  static const String getCarCategories = "$driverPath/get_car_categories.php";
   static const String getCompletedListForDriver = "$driverPath/getCompleatedListForDriver.php";
   static const String getCompletedListForVendor = "$driverPath/getCompleatedListForVender.php";
   static const String registerCar = "$driverPath/register_car.php";
