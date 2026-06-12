@@ -20,7 +20,7 @@ class ApiConfig {
   static const String carDriverSelectionPage = "$driverPath/car_driver_selction_page.php";
   static const String carListForVendor = "$driverPath/car_list_for_vender.php";
   static const String changeDocumentExpiredDate = "$driverPath/change_document_expaired_date.php";
-  static const String checkPhone = "$driverPath/checkPhone.php";
+  static const String checkPhone = "$baseUrl/admin2025/partner/checkPhone_fixed.php";
   static const String driverCodeFetching = "$driverPath/driver_code_fetching.php";
   static const String driverDetailsFetching = "$driverPath/driver_details_fetching.php";
   static const String driverListForVendor = "$driverPath/driver_list_for_vender.php";
@@ -35,7 +35,7 @@ class ApiConfig {
   static const String registerDriver = "$driverPath/register_driver.php";
   static const String regStatusCheck = "$driverPath/regStatusCheck.php";
   static const String saveStartingKm = "$driverPath/save_starting_km.php";
-  static const String saveDriverPhone = "$driverPath/saveDriverPhone.php";
+  static const String saveDriverPhone = "$baseUrl/admin2025/partner/saveDriverPhone_fixed.php";
   static const String statusChangeFilled = "$driverPath/status_change_filled.php";
   static const String statusChangeNotJoin = "$driverPath/status_change_not_join.php";
   static const String statusChangeNotFilled = "$driverPath/status_change_notFilled.php";
