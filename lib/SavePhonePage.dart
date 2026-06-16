@@ -70,17 +70,20 @@ class _SavePhonePageState extends State<SavePhonePage>
       var response = await http.post(
         Uri.parse(apiUrl),
         body: {
-          "phone_number": widget.phoneNumber,
+          "phone_number": widget.phoneNumber.trim(),
           "fcm_token": fcmToken ?? "",
         },
       ).timeout(const Duration(seconds: 15));
+
+      debugPrint("🔥 SAVE PHONE RESPONSE STATUS: ${response.statusCode}");
+      debugPrint("🔥 SAVE PHONE RESPONSE BODY: ${response.body}");
 
       var jsonResponse = jsonDecode(response.body);
 
       if (jsonResponse["success"] == true) {
         _updateStatus("Identity Verified Successfully!");
 
-        await storage.write(key: "phone_number", value: widget.phoneNumber);
+        await storage.write(key: "phone_number", value: widget.phoneNumber.trim());
 
         await Future.delayed(const Duration(milliseconds: 1200));
 
@@ -100,7 +103,8 @@ class _SavePhonePageState extends State<SavePhonePage>
           );
         }
       } else {
-        _handleError("Server rejected request");
+        String serverMsg = jsonResponse["message"] ?? "Server rejected request";
+        _handleError(serverMsg);
       }
     } catch (e) {
       debugPrint("🔥 SAVE PHONE ERROR: $e");

@@ -46,17 +46,23 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
     phoneNumber = await secureStorage.read(key: "phone_number");
     String apiUrl =
         "${ApiConfig.carDriverSelectionPage}?phone_number=$phoneNumber";
+    String carsUrl =
+        "${ApiConfig.carListForVendor}?vendor_id=$phoneNumber";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
+      final carsResponse = await http.get(Uri.parse(carsUrl));
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && carsResponse.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data["status"] == "success") {
+        final carsData = jsonDecode(carsResponse.body);
+
+        if (data["status"] == "success" && carsData["status"] == true) {
           final driverVehicleData =
               data["data"]["driver_with_vehicle"] as List<dynamic>;
           final driverVendorData =
               data["data"]["driver_with_vendor"] as List<dynamic>;
+          final carsList = carsData["data"] as List<dynamic>;
 
           setState(() {
             driverWithVehicle = driverVehicleData
@@ -78,8 +84,10 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
                     })
                 .toList();
 
-            vehicles = driverWithVehicle
-                .map((item) => item["vehicle_number"].toString())
+            // Populate vehicles from the vendor's actual active/approved cars list
+            vehicles = carsList
+                .where((car) => car["status"] != "inactive")
+                .map((car) => car["vehicle_number"].toString())
                 .toSet()
                 .toList();
 
@@ -88,9 +96,10 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
                 .toSet()
                 .toList();
 
+            // Map vehicle status based on today's bookings in the car list
             vehicleStatus = {
-              for (var v in driverWithVehicle)
-                v["vehicle_number"].toString(): v["availability_status"]
+              for (var car in carsList)
+                car["vehicle_number"].toString(): _isBookedToday(car["bookings"] ?? []) ? "conflict" : "available"
             };
 
             driverStatus = {
@@ -110,15 +119,20 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
             isLoading = false;
           });
         } else {
-          throw Exception(data["message"] ?? "Unknown error");
+          throw Exception(data["message"] ?? carsData["message"] ?? "Unknown error");
         }
       } else {
-        throw Exception('Failed to load data: ${response.statusCode}');
+        throw Exception('Failed to load data from server');
       }
     } catch (e) {
       setState(() => isLoading = false);
       _showSnackBar('Error: ${e.toString()}');
     }
+  }
+
+  bool _isBookedToday(List bookings) {
+    String today = DateTime.now().toString().split(" ")[0];
+    return bookings.any((b) => b["date"] == today);
   }
 
   void _showSnackBar(String message) {

@@ -32,6 +32,12 @@ void main() async {
   // 🔥 1. Request permission (MANDATORY)
   await FirebaseMessaging.instance.requestPermission();
 
+  // Request location permission to avoid SecurityException for Foreground Service
+  LocationPermission permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+  }
+
   // 🔥 2. Foreground messages
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     debugPrint("📩 Foreground: ${message.notification?.title}");
@@ -40,7 +46,15 @@ void main() async {
   // 🔥 3. Background / terminated messages
   FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
 
-  await _setupTrackingService();
+  if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+    await _setupTrackingService();
+    final service = FlutterBackgroundService();
+    if (!await service.isRunning()) {
+      service.startService();
+    }
+  } else {
+    debugPrint("⚠️ Location permission not granted. Background service not started.");
+  }
 
   runApp(const RentoxApp());
 }
@@ -66,7 +80,7 @@ Future<void> _setupTrackingService() async {
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
-      autoStart: true,
+      autoStart: false,
       isForegroundMode: true,
       notificationChannelId: 'driver_tracking',
       initialNotificationTitle: 'Rentox Tracking',
@@ -74,7 +88,7 @@ Future<void> _setupTrackingService() async {
       foregroundServiceNotificationId: 888,
     ),
     iosConfiguration: IosConfiguration(
-      autoStart: true,
+      autoStart: false,
       onForeground: onStart,
       onBackground: onIosBackground,
     ),

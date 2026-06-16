@@ -137,9 +137,25 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
     double toll = double.tryParse(_tollChargeController.text) ?? 0;
     double permit = double.tryParse(_permitChargeController.text) ?? 0;
 
+    final double closingKm = double.tryParse(_closingKmController.text) ?? 0;
+    final double sKm = double.tryParse(startingKm ?? '0') ?? 0;
+
+    // Validate closing KM for non-skip trip types (Local-Duty, Round-Trip)
+    final bool isKmRequired = tripType != 'One-way' && tripType != 'Local-taxi';
+    if (isKmRequired) {
+      if (_closingKmController.text.trim().isEmpty) {
+        _showError("⚠️ Please enter a closing kilometer reading.");
+        setState(() => _isSubmitting = false);
+        return;
+      }
+      if (closingKm < sKm) {
+        _showError("⚠️ Closing KM ($closingKm) cannot be less than Starting KM ($sKm).");
+        setState(() => _isSubmitting = false);
+        return;
+      }
+    }
+
     try {
-      final double closingKm = double.tryParse(_closingKmController.text) ?? 0;
-      final double sKm = double.tryParse(startingKm ?? '0') ?? 0;
       final double runningKm = closingKm - sKm;
 
       final dateTimeFormat = DateFormat("yyyy-MM-dd HH:mm");
