@@ -32,7 +32,7 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
 
   LatLng? fromLatLng;
   LatLng? toLatLng;
-  LatLng? driverLatLng;
+  LatLng driverLatLng = const LatLng(20.5937, 78.9629);
 
   List<LatLng> routePoints = [];
   bool isLoading = true;
@@ -78,7 +78,6 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
     }
   }
 
-  // Same logic as your provided code
   Future<void> _loadRouteAndDriver() async {
     try {
       final bookingRes = await http.post(
@@ -89,14 +88,33 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
       final bookingData = json.decode(bookingRes.body);
       if (!bookingData['success']) throw Exception("Booking fetch failed");
 
-      fromAddress = bookingData['from_address'];
-      toAddress = bookingData['to_address'];
+      fromAddress = bookingData['from_address'] ?? "";
+      toAddress = bookingData['to_address'] ?? "";
 
-      final fromLocs = await locationFromAddress(fromAddress);
-      final toLocs = await locationFromAddress(toAddress);
+      try {
+        if (fromAddress.isNotEmpty) {
+          final fromLocs = await locationFromAddress(fromAddress);
+          if (fromLocs.isNotEmpty) {
+            fromLatLng = LatLng(fromLocs[0].latitude, fromLocs[0].longitude);
+          }
+        }
+      } catch (e) {
+        debugPrint("Geocoding failed for pickup address ($fromAddress): $e");
+      }
 
-      fromLatLng = LatLng(fromLocs[0].latitude, fromLocs[0].longitude);
-      toLatLng = LatLng(toLocs[0].latitude, toLocs[0].longitude);
+      try {
+        if (toAddress.isNotEmpty &&
+            toAddress != "Local Trip / Drop" &&
+            toAddress != "Local Duty" &&
+            toAddress != "N/A") {
+          final toLocs = await locationFromAddress(toAddress);
+          if (toLocs.isNotEmpty) {
+            toLatLng = LatLng(toLocs[0].latitude, toLocs[0].longitude);
+          }
+        }
+      } catch (e) {
+        debugPrint("Geocoding failed for drop address ($toAddress): $e");
+      }
 
       final driverRes = await http.post(
         Uri.parse(ApiConfig.tripLiveMappingBackend),
@@ -107,14 +125,24 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
       );
 
       final driverData = json.decode(driverRes.body);
-      driverLatLng = LatLng(driverData['latitude'], driverData['longitude']);
+      if (driverData['latitude'] != null && driverData['longitude'] != null) {
+        driverLatLng = LatLng(driverData['latitude'], driverData['longitude']);
+      }
 
-      await _fetchRouteOSRM(fromLatLng!, toLatLng!);
-
-      setState(() => isLoading = false);
-      _mapController.move(driverLatLng!, 15);
+      if (fromLatLng != null && toLatLng != null) {
+        try {
+          await _fetchRouteOSRM(fromLatLng!, toLatLng!);
+        } catch (e) {
+          debugPrint("OSRM route fetch failed: $e");
+        }
+      }
     } catch (e) {
-      debugPrint("Error: $e");
+      debugPrint("Error loading route and driver: $e");
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+        _mapController.move(driverLatLng, 15);
+      }
     }
   }
 
@@ -152,7 +180,7 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
           });
 
           if (followDriver)
-            _mapController.move(driverLatLng!, _mapController.camera.zoom);
+            _mapController.move(driverLatLng, _mapController.camera.zoom);
 
           await http.post(
             Uri.parse(ApiConfig.updateLocation),
@@ -182,7 +210,7 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
                 FlutterMap(
                   mapController: _mapController,
                   options:
-                      MapOptions(initialCenter: driverLatLng!, initialZoom: 15),
+                      MapOptions(initialCenter: driverLatLng, initialZoom: 15),
                   children: [
                     TileLayer(
                       urlTemplate:
@@ -200,12 +228,14 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
                     ),
                     MarkerLayer(
                       markers: [
-                        _buildMarker(
-                            fromLatLng!, Icons.circle, Colors.green, 12),
-                        _buildMarker(
-                            toLatLng!, Icons.location_on, Colors.redAccent, 35),
+                        if (fromLatLng != null)
+                          _buildMarker(
+                              fromLatLng!, Icons.circle, Colors.green, 12),
+                        if (toLatLng != null)
+                          _buildMarker(
+                              toLatLng!, Icons.location_on, Colors.redAccent, 35),
                         Marker(
-                          point: driverLatLng!,
+                          point: driverLatLng,
                           width: 60,
                           height: 60,
                           child: _buildDriverMarker(),

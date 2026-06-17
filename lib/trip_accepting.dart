@@ -53,7 +53,6 @@ class _DriverTripPageState extends State<DriverTripPage> {
 
     String apiUrl = ApiConfig.acceptBooking;
 
-
     try {
       var response = await http.post(
         Uri.parse(apiUrl),
@@ -66,7 +65,6 @@ class _DriverTripPageState extends State<DriverTripPage> {
       print("Sent Booking ID: ${widget.bookingId}");
       print("Sent Driver ID: $storedPhoneNumber");
       print("Response Status Code: ${response.statusCode}");
-      print("Response Headers: ${response.headers}");
       print("Response Body: ${response.body}");
 
       if (response.headers["content-type"]?.contains("application/json") ==
@@ -74,48 +72,55 @@ class _DriverTripPageState extends State<DriverTripPage> {
         var jsonResponse = jsonDecode(response.body);
         if (jsonResponse["success"] == true) {
           setState(() {
-            if (jsonResponse["success"] == true) {
-              setState(() {
-                showDetails = true;
-              });
+            showDetails = true;
+          });
 
-              // Show a success dialog instead of just updating UI
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: const Text(
-                      "Trip Accepted",
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.check_circle, color: Colors.green, size: 80),
-                        SizedBox(height: 10),
-                        Text(
-                          "You have successfully accepted the trip!",
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context); // Close dialog
-                        },
-                        child: const Text(
-                          "OK",
-                          overflow: TextOverflow.ellipsis,
-                        ),
+          if (mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: const Text(
+                    "Trip Accepted",
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  content: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green, size: 80),
+                      SizedBox(height: 10),
+                      Text(
+                        "You have successfully accepted the trip!",
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                  );
-                },
-              );
-            }
-          });
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context); // Close dialog
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BookingListPage(
+                              phoneNumber: storedPhoneNumber!,
+                            ),
+                          ),
+                          (route) => false,
+                        );
+                      },
+                      child: const Text(
+                        "OK",
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
                 content: Text(
@@ -127,19 +132,20 @@ class _DriverTripPageState extends State<DriverTripPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                jsonResponse["message"],
+                jsonResponse["message"] ?? "Failed to accept booking",
                 overflow: TextOverflow.ellipsis,
               ),
             ),
           );
+          if (mounted) Navigator.pop(context); // Go back
         }
       } else {
-        print(
-          "Unexpected response format. Check API output.",
-        );
+        print("Unexpected response format. Check API output.");
+        if (mounted) Navigator.pop(context); // Go back
       }
     } catch (e) {
       print("Error accepting booking: $e");
+      if (mounted) Navigator.pop(context); // Go back
     }
   }
 

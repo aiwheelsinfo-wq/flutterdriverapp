@@ -53,55 +53,80 @@ class _TripLiveMappingState extends State<Driverlocationtracking> {
       final bookingData = json.decode(bookingRes.body);
       if (!bookingData['success']) throw Exception("Booking fetch failed.");
 
-      final fromAddress = bookingData['from_address'];
-      final toAddress = bookingData['to_address'];
+      final fromAddress = bookingData['from_address'] ?? "";
+      final toAddress = bookingData['to_address'] ?? "";
 
       // 2. Convert address to LatLng
-      final fromLocations = await locationFromAddress(fromAddress);
-      fromLatLng =
-          LatLng(fromLocations[0].latitude, fromLocations[0].longitude);
-
-      // 3. Get driver phone number
-
-      // 4. Get driver location
-      final driverRes = await http.post(
-        Uri.parse(ApiConfig.tripLiveMappingBackend),
-
-        body: {
-          'action': 'get_driver_location',
-          'phone_number': widget.phoneNumber,
-        },
-      );
-
-      final driverData = json.decode(driverRes.body);
-      if (!driverData['success']) throw Exception("Driver location failed.");
-
-      driverLatLng = LatLng(driverData['latitude'], driverData['longitude']);
-
-      // 5. Handle route drawing only if toAddress is provided
-      if (toAddress.isNotEmpty) {
-        final toLocations = await locationFromAddress(toAddress);
-        toLatLng = LatLng(toLocations[0].latitude, toLocations[0].longitude);
-
-        await _fetchRouteFromGoogleDirectionsAPI(fromLatLng!, toLatLng!);
-
-        _markers.add(Marker(markerId: MarkerId("to"), position: toLatLng!));
+      try {
+        if (fromAddress.isNotEmpty) {
+          final fromLocations = await locationFromAddress(fromAddress);
+          if (fromLocations.isNotEmpty) {
+            fromLatLng =
+                LatLng(fromLocations[0].latitude, fromLocations[0].longitude);
+          }
+        }
+      } catch (e) {
+        debugPrint("Geocoding failed for pickup address: $e");
       }
 
-      // 6. Update map with markers
+      // 4. Get driver location
+      try {
+        final driverRes = await http.post(
+          Uri.parse(ApiConfig.tripLiveMappingBackend),
+
+          body: {
+            'action': 'get_driver_location',
+            'phone_number': widget.phoneNumber,
+          },
+        );
+
+        final driverData = json.decode(driverRes.body);
+        if (driverData['success'] == true && driverData['latitude'] != null && driverData['longitude'] != null) {
+          driverLatLng = LatLng(driverData['latitude'], driverData['longitude']);
+        }
+      } catch (e) {
+        debugPrint("Driver location fetch failed: $e");
+      }
+
+      // 5. Handle route drawing only if toAddress is provided
+      if (toAddress.isNotEmpty &&
+          toAddress != "Local Trip / Drop" &&
+          toAddress != "Local Duty" &&
+          toAddress != "N/A") {
+        try {
+          final toLocations = await locationFromAddress(toAddress);
+          if (toLocations.isNotEmpty) {
+            toLatLng = LatLng(toLocations[0].latitude, toLocations[0].longitude);
+
+            if (fromLatLng != null) {
+              await _fetchRouteFromGoogleDirectionsAPI(fromLatLng!, toLatLng!);
+            }
+
+            _markers.add(Marker(markerId: const MarkerId("to"), position: toLatLng!));
+          }
+        } catch (e) {
+          debugPrint("Geocoding/routing failed for drop address: $e");
+        }
+      }
+    } catch (e) {
+      print("Error loading map: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to load trip data.")),
+      );
+    } finally {
       setState(() {
-        _markers.add(Marker(markerId: MarkerId("from"), position: fromLatLng!));
-        _markers
-            .add(Marker(markerId: MarkerId("driver"), position: driverLatLng!));
+        if (fromLatLng == null) {
+          fromLatLng = const LatLng(20.5937, 78.9629);
+        }
+        if (driverLatLng == null) {
+          driverLatLng = const LatLng(20.5937, 78.9629);
+        }
+        _markers.add(Marker(markerId: const MarkerId("from"), position: fromLatLng!));
+        _markers.add(Marker(markerId: const MarkerId("driver"), position: driverLatLng!));
       });
 
       _mapController
           ?.animateCamera(CameraUpdate.newLatLngZoom(driverLatLng!, 14));
-    } catch (e) {
-      print("Error loading map: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to load trip data.")),
-      );
     }
   }
 
