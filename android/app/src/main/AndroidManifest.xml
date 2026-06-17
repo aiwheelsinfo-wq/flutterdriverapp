@@ -39,7 +39,7 @@
         <!-- 🔹 Firebase & Maps -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyB21TWQklk6a0BPHSiI72gYSqM-T1A86Po" />
+            android:value="AIzaSyC41U3p08LqY8G15ruxDCEfTvBLkG_OrsM" />
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

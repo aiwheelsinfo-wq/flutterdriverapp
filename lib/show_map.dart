@@ -38,7 +38,7 @@ class _ShowMapState extends State<ShowMap> {
   location.LocationData? _currentPosition;
 
   String googleAPIKey =
-      "AIzaSyCZkOB0WSoPjjdf8gRUj9GcXXJuWvpj5Mo"; // Replace this
+      "AIzaSyC41U3p08LqY8G15ruxDCEfTvBLkG_OrsM"; // Replace this
 
   @override
   void initState() {

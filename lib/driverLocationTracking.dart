@@ -108,7 +108,7 @@ class _TripLiveMappingState extends State<Driverlocationtracking> {
   Future<void> _fetchRouteFromGoogleDirectionsAPI(
       LatLng from, LatLng to) async {
     final apiKey =
-        "AIzaSyCZkOB0WSoPjjdf8gRUj9GcXXJuWvpj5Mo"; // Replace with your actual API key
+        "AIzaSyC41U3p08LqY8G15ruxDCEfTvBLkG_OrsM"; // Replace with your actual API key
     final url = Uri.parse(
       "https://maps.googleapis.com/maps/api/directions/json?origin=${from.latitude},${from.longitude}&destination=${to.latitude},${to.longitude}&key=$apiKey",
     );
