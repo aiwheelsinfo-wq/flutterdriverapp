@@ -68,6 +68,8 @@ class ApiConfig {
   // Endpoints under 2025
   static const String getInvoiceData = "$legacyPath/get_invoice_data.php/get_invoice_data.php";
   static const String selectCarCostList = "$legacyPath/selectCarCostList.php";
+  static const String getSettlements = "$legacyPath/get_settlements.php";
+  static const String getCancelledBookings = "$legacyPath/getCancelledBookingsForVendor.php";
 
   // Third party
   static const String fast2smsUrl = "https://www.fast2sms.com/dev/bulkV2";

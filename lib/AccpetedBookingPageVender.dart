@@ -58,8 +58,9 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
   void _listenForCancellations() {
     _fcmSub = FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       if (message.data['type'] == 'customer_cancelled') {
-        // Refresh the list immediately when a cancellation arrives
+        // Refresh both active trips and cancellation history immediately
         _fetchAcceptedBookings();
+        _fetchCancelledBookings();
         // Switch to the cancellation history tab
         if (mounted) {
           _tabController.animateTo(1);
@@ -71,7 +72,11 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
   Future<void> _loadPhoneNumberAndFetch() async {
     storedPhoneNumber = await storage.read(key: "phone_number");
     if (storedPhoneNumber != null) {
-      await _fetchAcceptedBookings();
+      // Fetch both in parallel
+      await Future.wait([
+        _fetchAcceptedBookings(),
+        _fetchCancelledBookings(),
+      ]);
       _startAutoRefresh();
     } else {
       setState(() => isLoading = false);
@@ -81,6 +86,7 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
   void _startAutoRefresh() {
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _fetchAcceptedBookings();
+      _fetchCancelledBookings();
     });
   }
 
@@ -92,31 +98,50 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success'] && data['acceptedBookings'] != null) {
-          final List<dynamic> all = data['acceptedBookings'];
+        if (data['success'] == true) {
+          // acceptedBookings may include all statuses OR only active ones
+          // depending on the server version. We handle both cases.
+          final List<dynamic> all =
+              (data['acceptedBookings'] as List<dynamic>?) ?? [];
 
           // Split into active vs customer-cancelled
           final active = all
-              .where((b) => b['booking_status'] != 'Customer Cancelled')
-              .toList();
-          final cancelled = all
-              .where((b) => b['booking_status'] == 'Customer Cancelled')
+              .where((b) =>
+                  b['booking_status'] != 'Customer Cancelled' &&
+                  b['booking_status'] != 'Cancelled' &&
+                  b['booking_status'] != 'Cancellation Requested')
               .toList();
 
-          if (!listEquals(activeBookings, active) ||
-              !listEquals(cancelledBookings, cancelled)) {
-            if (mounted) {
-              setState(() {
-                activeBookings = active;
-                cancelledBookings = cancelled;
-                isLoading = false;
-              });
-            }
-          } else {
-            if (mounted) setState(() => isLoading = false);
+          // Customer Cancelled bookings may come either inside acceptedBookings
+          // or in a separate 'cancelledBookings' key from the server
+          final serverCancelled = all
+              .where((b) =>
+                  b['booking_status'] == 'Customer Cancelled' ||
+                  b['booking_status'] == 'Cancellation Requested')
+              .toList();
+
+          // Also merge any separate cancelledBookings array the server may return
+          final extraCancelled =
+              (data['cancelledBookings'] as List<dynamic>?) ?? [];
+          final allCancelled = [...serverCancelled, ...extraCancelled];
+
+          if (mounted) {
+            setState(() {
+              // ALWAYS update — even if empty — so trips disappear instantly
+              activeBookings = active;
+              cancelledBookings = allCancelled;
+              isLoading = false;
+            });
           }
         } else {
-          if (mounted) setState(() => isLoading = false);
+          // success == false → clear everything
+          if (mounted) {
+            setState(() {
+              activeBookings = [];
+              cancelledBookings = [];
+              isLoading = false;
+            });
+          }
         }
       }
     } catch (e) {
@@ -124,6 +149,47 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
       if (mounted) setState(() => isLoading = false);
     }
   }
+
+
+  // ── Separate fetch for cancellation history ──────────────────────────────
+  Future<void> _fetchCancelledBookings() async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.getCancelledBookings),
+        body: {"phone_number": storedPhoneNumber},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          final List<dynamic> fromServer =
+              (data['cancelledBookings'] as List<dynamic>?) ?? [];
+          if (mounted) {
+            setState(() {
+              // Merge with any cancellations already found in acceptedBookings
+              // Use booking_id as key to avoid duplicates
+              final existingIds =
+                  cancelledBookings.map((b) => b['booking_id']).toSet();
+              for (var b in fromServer) {
+                if (!existingIds.contains(b['booking_id'])) {
+                  cancelledBookings.add(b);
+                  existingIds.add(b['booking_id']);
+                }
+              }
+              // Also replace with server version if already present (fresher data)
+              cancelledBookings = [
+                ...fromServer,
+                ...cancelledBookings.where((b) =>
+                    !fromServer.any((s) => s['booking_id'] == b['booking_id']))
+              ];
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching cancelled bookings: $e");
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   String formatTime(String timeStr) {
     try {
