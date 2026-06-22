@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 @pragma('vm:entry-point')
@@ -133,6 +134,11 @@ class NotificationService {
   }
 
   Future<void> _handleBackgroundMessage(RemoteMessage message) async {
-    if (message.data['type'] == 'chat') {}
+    if (message.data['type'] == 'customer_cancelled') {
+      // App was opened from a cancellation notification — nothing to navigate,
+      // the AccpetedBookingPageVender page will refresh automatically on load.
+      debugPrint(
+          '[FCM] Customer cancelled booking #${message.data['booking_id']}');
+    }
   }
 }
