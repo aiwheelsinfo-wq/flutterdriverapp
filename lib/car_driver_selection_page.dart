@@ -4,10 +4,12 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_config.dart';
 import 'booking_list.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CarDriverSelectionScreen extends StatefulWidget {
   final String bookingId;
-  const CarDriverSelectionScreen({super.key, required this.bookingId});
+  final Map<String, dynamic>? bookingData;
+  const CarDriverSelectionScreen({super.key, required this.bookingId, this.bookingData});
 
   @override
   _CarDriverSelectionScreenState createState() =>
@@ -30,6 +32,13 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
   Map<String, String> vehicleStatus = {};
   Map<String, String> driverStatus = {};
 
+  double? totalAmount;
+  double? vendorAmount; // Raw vendor_amount from API — for local taxi this IS the customer's fare
+  double? paidAmount;
+  String? tripType;
+  String? paymentType;
+  bool isFetchingBooking = true;
+
   // Theme Colors
   static const Color primaryAmber = Color(0xFFFFB300);
   static const Color lightAmber = Color(0xFFFFF8E1);
@@ -40,6 +49,311 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
   void initState() {
     super.initState();
     fetchData();
+    _fetchBookingDetails();
+  }
+
+  Future<void> _fetchBookingDetails() async {
+    // 1. Try to use passed bookingData
+    if (widget.bookingData != null) {
+      final bd = widget.bookingData!;
+      String tType = bd['trip_type']?.toString() ?? '';
+      bool isLocalTaxi = tType.toLowerCase().contains('local') && tType.toLowerCase().contains('taxi');
+
+      double? parsedFare;
+
+      // Priority 1: total_amount field (most reliable)
+      if (bd['total_amount'] != null) {
+        parsedFare = double.tryParse(bd['total_amount'].toString());
+      }
+
+      // Priority 2: amount field
+      if ((parsedFare == null || parsedFare == 0) && bd['amount'] != null) {
+        parsedFare = double.tryParse(bd['amount'].toString());
+      }
+
+      // Priority 3: vendor_amount field
+      if ((parsedFare == null || parsedFare == 0) && bd['vendor_amount'] != null) {
+        double vendorAmt = double.tryParse(bd['vendor_amount'].toString()) ?? 0.0;
+        if (vendorAmt > 0) {
+          // For local taxi: vendor_amount == total_amount (100%)
+          // For others: vendor_amount == 90% of total, so reverse to get total
+          parsedFare = isLocalTaxi ? vendorAmt : (vendorAmt / 0.90);
+        }
+      }
+
+      if (parsedFare != null && parsedFare > 0) {
+        setState(() {
+          totalAmount = parsedFare;
+          // Store vendor_amount directly — for local taxi this equals total customer fare
+          vendorAmount = double.tryParse(bd['vendor_amount']?.toString() ?? '');
+          tripType = tType;
+          paymentType = bd['payment_type']?.toString();
+          paidAmount = double.tryParse(bd['paid_amount']?.toString() ?? '') ?? 0.0;
+          isFetchingBooking = false;
+        });
+        return;
+      }
+    }
+
+    // 2. Fallback to API call
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.tripLiveMappingBackend),
+        body: {'action': 'get_booking_otp', 'booking_id': widget.bookingId.toString()},
+      );
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        setState(() {
+          totalAmount = double.tryParse(data['total_amount']?.toString() ?? '') ?? 0.0;
+          tripType = data['trip_type'];
+          paymentType = data['payment_type'];
+          paidAmount = double.tryParse(data['paid_amount']?.toString() ?? '') ?? 0.0;
+          isFetchingBooking = false;
+        });
+      } else {
+        setState(() => isFetchingBooking = false);
+      }
+    } catch (e) {
+      setState(() => isFetchingBooking = false);
+    }
+  }
+
+
+  Widget _buildFinancialSummary() {
+    if (isFetchingBooking) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator(color: primaryAmber)),
+      );
+    }
+
+    if (totalAmount == null || totalAmount == 0) {
+      return const SizedBox.shrink();
+    }
+
+    if (tripType == 'Round-Trip') {
+      return const SizedBox.shrink();
+    }
+
+    double fare = totalAmount!;
+    bool isLocalTaxi = (tripType?.toLowerCase() ?? '').contains('local') && (tripType?.toLowerCase() ?? '').contains('taxi');
+
+    if (isLocalTaxi) {
+      // For local taxi: use vendorAmount directly from DB (= customer's paid amount, 100%)
+      double localFare = (vendorAmount != null && vendorAmount! > 0) ? vendorAmount! : fare;
+      return Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(color: Colors.grey.shade100),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.account_balance_wallet_rounded, color: primaryAmber, size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  "Fare & Earnings Summary",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: darkCharcoal,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            _buildSummaryRow("Total Fare", "₹${localFare.toStringAsFixed(0)}", isHighlight: false),
+            const SizedBox(height: 12),
+            _buildSummaryRow("Commission", "₹0", isHighlight: false),
+            const SizedBox(height: 12),
+            _buildSummaryRow("Platform Fee", "₹0", isHighlight: false),
+            const SizedBox(height: 12),
+            _buildSummaryRow(
+              "Vendor Earnings", 
+              "₹${localFare.toStringAsFixed(0)}", 
+              isHighlight: true, 
+              highlightColor: primaryAmber,
+            ),
+            const SizedBox(height: 12),
+            _buildSummaryRow(
+              "Net Payable", 
+              "₹${localFare.toStringAsFixed(0)}", 
+              isHighlight: true, 
+              highlightColor: Colors.green,
+            ),
+          ],
+        ),
+      );
+    }
+
+
+    double advancePaid = fare * 0.25;
+    double remainingCollect = fare * 0.75;
+    double totalEarnings = fare * 0.90;
+    double settlementEligible = advancePaid * 0.60;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.account_balance_wallet_rounded, color: primaryAmber, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                "Fare & Earnings Summary",
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: darkCharcoal,
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          _buildSummaryRow("Customer Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}", isHighlight: false),
+          const SizedBox(height: 12),
+          _buildSummaryRow(
+            "Remaining Amount to Collect", 
+            "₹${remainingCollect.toStringAsFixed(0)}", 
+            isHighlight: false, 
+            subtitle: "Collect from customer on-trip",
+          ),
+          const SizedBox(height: 12),
+          _buildSummaryRow(
+            "Your Total Earnings", 
+            "₹${totalEarnings.toStringAsFixed(0)}", 
+            isHighlight: true, 
+            highlightColor: primaryAmber,
+          ),
+          const SizedBox(height: 12),
+          _buildSummaryRow(
+            "Advance Settlement Eligible", 
+            "₹${settlementEligible.toStringAsFixed(0)}", 
+            isHighlight: true, 
+            highlightColor: Colors.green,
+          ),
+          const SizedBox(height: 12),
+          _buildSummaryRow(
+            "Settlement Status", 
+            "Pending", 
+            isHighlight: false, 
+            valueColor: Colors.orange.shade800,
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green.shade100),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline_rounded, color: Colors.green.shade800, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "₹${settlementEligible.toStringAsFixed(0)} will be credited to your registered bank account within 7 days after successful trip completion and payment verification.",
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.green.shade900,
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(
+    String label, 
+    String value, {
+    required bool isHighlight,
+    Color? highlightColor,
+    Color? valueColor,
+    String? subtitle,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: isHighlight ? 13 : 12,
+                  fontWeight: isHighlight ? FontWeight.bold : FontWeight.w500,
+                  color: isHighlight ? darkCharcoal : Colors.grey.shade600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: isHighlight ? const EdgeInsets.symmetric(horizontal: 10, vertical: 4) : null,
+              decoration: isHighlight
+                  ? BoxDecoration(
+                      color: (highlightColor ?? primaryAmber).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    )
+                  : null,
+              child: Text(
+                value,
+                style: GoogleFonts.poppins(
+                  fontSize: isHighlight ? 15 : 13,
+                  fontWeight: FontWeight.bold,
+                  color: isHighlight ? (highlightColor ?? primaryAmber) : (valueColor ?? darkCharcoal),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: Colors.grey.shade500,
+            ),
+          ),
+        ]
+      ],
+    );
   }
 
   Future<void> fetchData() async {
@@ -237,6 +551,8 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildSummaryHeader(),
+          const SizedBox(height: 16),
+          _buildFinancialSummary(),
           const SizedBox(height: 24),
           _buildSelectionCard(
             label: "Vehicle Selection",

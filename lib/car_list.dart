@@ -489,9 +489,13 @@ class _CarListPageState extends State<CarListPage> {
                     Text("${b["trip_type"]} Trip",
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 13)),
-                    Text("₹${b["amount"] ?? "0"}",
-                        style: TextStyle(
-                            color: kAmber, fontWeight: FontWeight.bold)),
+                    if ((b["trip_type"] ?? '') != 'Round-Trip')
+                      Text(
+                          "₹${b["vendor_amount"] ?? b["amount"] ?? "0"}",
+                          style: TextStyle(
+                              color: kAmber,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14)),
                   ],
                 ),
                 const SizedBox(height: 10),

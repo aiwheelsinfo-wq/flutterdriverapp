@@ -40,50 +40,49 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBDpCY8IKlX-M2lImiIkS8lB7z_ARxky_A',
-    appId: '1:704229396210:web:4c8f6d23dfec40e5de0a6b',
-    messagingSenderId: '704229396210',
-    projectId: 'agni-car-app',
-    authDomain: 'agni-car-app.firebaseapp.com',
-    storageBucket: 'agni-car-app.firebasestorage.app',
-    measurementId: 'G-80PHHP64RF',
-  );
+  // ✅ CORRECT PROJECT: agnicarrentaldriver-8fb07
+  // Package: com.AgniDriver.agnidriver2025
+  // Sender ID: 1006622748598
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAPxJvzK1HxsvEzPU2omrjUVgKnhKzHrA8',
-    appId: '1:704229396210:android:7ff001942b7660bdde0a6b',
-    messagingSenderId: '704229396210',
-    projectId: 'agni-car-app',
-    storageBucket: 'agni-car-app.firebasestorage.app',
+    apiKey: 'AIzaSyD8ek1VqFekyprDlnfWivoCzXDuxQQgCyI',
+    appId: '1:1006622748598:android:dc364a107b815ebdbc1b17',
+    messagingSenderId: '1006622748598',
+    projectId: 'agnicarrentaldriver-8fb07',
+    storageBucket: 'agnicarrentaldriver-8fb07.firebasestorage.app',
+  );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyD8ek1VqFekyprDlnfWivoCzXDuxQQgCyI',
+    appId: '1:1006622748598:android:dc364a107b815ebdbc1b17',
+    messagingSenderId: '1006622748598',
+    projectId: 'agnicarrentaldriver-8fb07',
+    storageBucket: 'agnicarrentaldriver-8fb07.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyB7hamB5ji7Kkrp3gt5fM137E8EXV-MyCk',
-    appId: '1:704229396210:ios:0103e08e0366184ede0a6b',
-    messagingSenderId: '704229396210',
-    projectId: 'agni-car-app',
-    storageBucket: 'agni-car-app.firebasestorage.app',
-    iosBundleId: 'com.example.agnidriver2025',
+    apiKey: 'AIzaSyD8ek1VqFekyprDlnfWivoCzXDuxQQgCyI',
+    appId: '1:1006622748598:android:dc364a107b815ebdbc1b17',
+    messagingSenderId: '1006622748598',
+    projectId: 'agnicarrentaldriver-8fb07',
+    storageBucket: 'agnicarrentaldriver-8fb07.firebasestorage.app',
+    iosBundleId: 'com.AgniDriver.agnidriver2025',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyB7hamB5ji7Kkrp3gt5fM137E8EXV-MyCk',
-    appId: '1:704229396210:ios:0103e08e0366184ede0a6b',
-    messagingSenderId: '704229396210',
-    projectId: 'agni-car-app',
-    storageBucket: 'agni-car-app.firebasestorage.app',
-    iosBundleId: 'com.example.agnidriver2025',
+    apiKey: 'AIzaSyD8ek1VqFekyprDlnfWivoCzXDuxQQgCyI',
+    appId: '1:1006622748598:android:dc364a107b815ebdbc1b17',
+    messagingSenderId: '1006622748598',
+    projectId: 'agnicarrentaldriver-8fb07',
+    storageBucket: 'agnicarrentaldriver-8fb07.firebasestorage.app',
+    iosBundleId: 'com.AgniDriver.agnidriver2025',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBDpCY8IKlX-M2lImiIkS8lB7z_ARxky_A',
-    appId: '1:704229396210:web:92a83501a5a73b90de0a6b',
-    messagingSenderId: '704229396210',
-    projectId: 'agni-car-app',
-    authDomain: 'agni-car-app.firebaseapp.com',
-    storageBucket: 'agni-car-app.firebasestorage.app',
-    measurementId: 'G-54ZG21D1C9',
+    apiKey: 'AIzaSyD8ek1VqFekyprDlnfWivoCzXDuxQQgCyI',
+    appId: '1:1006622748598:android:dc364a107b815ebdbc1b17',
+    messagingSenderId: '1006622748598',
+    projectId: 'agnicarrentaldriver-8fb07',
+    storageBucket: 'agnicarrentaldriver-8fb07.firebasestorage.app',
   );
-
 }

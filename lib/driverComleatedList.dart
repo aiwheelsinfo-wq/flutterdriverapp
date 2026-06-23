@@ -178,7 +178,7 @@ class _InvoicelistState extends State<Drivercomleatedlist> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        const Text("Total"),
+                                        const Text("Partner Earning"),
                                         Text(
                                           "₹${booking['vendor_amount'].toString()}",
                                           style: const TextStyle(fontSize: 20),

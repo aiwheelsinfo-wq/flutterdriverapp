@@ -13,6 +13,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:intl/intl.dart';
 import 'driver_list.dart';
+import 'main.dart';
 // Your existing imports
 import 'AccpetedBookingPageVender.dart';
 import 'car_driver_selection_page.dart';
@@ -23,6 +24,7 @@ import 'whatsapp_booking_list.dart';
 import 'owner_account.dart';
 import 'car_reg_form.dart';
 import 'driver_add_form.dart';
+import 'settlements_page.dart';
 
 class BookingListPage extends StatefulWidget {
   final String phoneNumber;
@@ -41,6 +43,7 @@ class _BookingListPageState extends State<BookingListPage> {
   int totalTripCount = 0;
   List<dynamic> bookings = [];
   Timer? _timer;
+  StreamSubscription? _notificationSubscription;
 
   // Professional Color Palette
   final Color primaryAmber = const Color(0xFFFFB300);
@@ -57,10 +60,18 @@ class _BookingListPageState extends State<BookingListPage> {
     super.initState();
     fetchBookings();
     _startLiveUpdateTimer();
+
+    // Listen to foreground notifications to refresh the list automatically
+    _notificationSubscription = notificationStreamController.stream.listen((message) {
+      if (message.data['notification_type'] == 'new_booking') {
+        fetchBookings();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _notificationSubscription?.cancel();
     _timer?.cancel();
     _scrollController.dispose();
     super.dispose();
@@ -342,18 +353,22 @@ class _BookingListPageState extends State<BookingListPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text("Partner Earning",
-                      style: TextStyle(color: Colors.grey, fontSize: 11)),
-                  Text("₹${booking['vendor_amount']}",
-                      style: TextStyle(
-                          color: darkCharcoal,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20)),
-                ]),
+                if (booking['trip_type'] != 'Round-Trip')
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text("Partner Earning",
+                        style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    Text("₹${booking['vendor_amount']}",
+                        style: TextStyle(
+                            color: darkCharcoal,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20)),
+                  ])
+                else
+                  const SizedBox.shrink(),
                 ElevatedButton(
                   onPressed: () => _navigateTo(CarDriverSelectionScreen(
-                      bookingId: booking['booking_id'].toString())),
+                      bookingId: booking['booking_id'].toString(),
+                      bookingData: booking)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryAmber,
                     foregroundColor: Colors.white,
@@ -429,7 +444,9 @@ class _BookingListPageState extends State<BookingListPage> {
               () => _navigateTo(const CarListPage())),
           _navIcon(2, Icons.person_add_rounded,
               () => _navigateTo(const DriverListPage())),
-          _navIcon(3, Icons.account_circle_rounded,
+          _navIcon(3, Icons.account_balance_wallet_rounded,
+              () => _navigateTo(SettlementsPage(phoneNumber: widget.phoneNumber))),
+          _navIcon(4, Icons.account_circle_rounded,
               () => _navigateTo(const OwnerProfileScreen())),
         ],
       ),

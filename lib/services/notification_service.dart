@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../main.dart';
+import '../trip_accepting.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -81,8 +85,32 @@ class NotificationService {
 
     await _localNotifications.initialize(
       initializationSettings,
-      onDidReceiveNotificationResponse: (details) {
+      onDidReceiveNotificationResponse: (details) async {
         print("Notification clicked: ${details.payload}");
+        if (details.payload != null) {
+          try {
+            final Map<String, dynamic> data = jsonDecode(details.payload!);
+            if (data['notification_type'] == 'new_booking') {
+              final String? bookingId = data['booking_id'];
+              if (bookingId != null && bookingId.isNotEmpty) {
+                const storage = FlutterSecureStorage();
+                final phoneNumber = await storage.read(key: 'phone_number');
+                if (phoneNumber != null && phoneNumber.isNotEmpty) {
+                  navigatorKey.currentState?.push(
+                    MaterialPageRoute(
+                      builder: (context) => DriverTripPage(
+                        bookingId: bookingId,
+                        phoneNumber: phoneNumber,
+                      ),
+                    ),
+                  );
+                }
+              }
+            }
+          } catch (e) {
+            print("Error parsing local notification payload: $e");
+          }
+        }
       },
     );
 
@@ -91,9 +119,8 @@ class NotificationService {
 
   Future<void> showNotification(RemoteMessage message) async {
     RemoteNotification? notification = message.notification;
-    AndroidNotification? android = message.notification?.android;
 
-    if (notification != null && android != null) {
+    if (notification != null) {
       await _localNotifications.show(
         notification.hashCode,
         notification.title,
@@ -107,7 +134,6 @@ class NotificationService {
             importance: Importance.high,
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
-            // Play custom sound
           ),
           iOS: const DarwinNotificationDetails(
             presentAlert: true,
@@ -115,7 +141,7 @@ class NotificationService {
             presentSound: true,
           ),
         ),
-        payload: message.data['id'].toString(),
+        payload: jsonEncode(message.data),
       );
     }
   }
@@ -123,18 +149,30 @@ class NotificationService {
   Future<void> _setupMessageHandlers() async {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       showNotification(message);
+      notificationStreamController.add(message);
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
-
-    final InitialMessage = await _messaging.getInitialMessage();
-    if (InitialMessage != null) {
-      _handleBackgroundMessage(InitialMessage);
-    }
   }
 
   Future<void> _handleBackgroundMessage(RemoteMessage message) async {
-    if (message.data['type'] == 'customer_cancelled') {
+    if (message.data['notification_type'] == 'new_booking') {
+      final String? bookingId = message.data['booking_id'];
+      if (bookingId != null && bookingId.isNotEmpty) {
+        const storage = FlutterSecureStorage();
+        final phoneNumber = await storage.read(key: 'phone_number');
+        if (phoneNumber != null && phoneNumber.isNotEmpty) {
+          navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (context) => DriverTripPage(
+                bookingId: bookingId,
+                phoneNumber: phoneNumber,
+              ),
+            ),
+          );
+        }
+      }
+    } else if (message.data['type'] == 'customer_cancelled') {
       // App was opened from a cancellation notification — nothing to navigate,
       // the AccpetedBookingPageVender page will refresh automatically on load.
       debugPrint(

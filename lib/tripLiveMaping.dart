@@ -3,7 +3,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart'; // Essential for flutter_map
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:geocoding/geocoding.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:location/location.dart' as loc;
 
@@ -93,10 +92,7 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
 
       try {
         if (fromAddress.isNotEmpty) {
-          final fromLocs = await locationFromAddress(fromAddress);
-          if (fromLocs.isNotEmpty) {
-            fromLatLng = LatLng(fromLocs[0].latitude, fromLocs[0].longitude);
-          }
+          fromLatLng = await _geocodeAddress(fromAddress);
         }
       } catch (e) {
         debugPrint("Geocoding failed for pickup address ($fromAddress): $e");
@@ -107,10 +103,7 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
             toAddress != "Local Trip / Drop" &&
             toAddress != "Local Duty" &&
             toAddress != "N/A") {
-          final toLocs = await locationFromAddress(toAddress);
-          if (toLocs.isNotEmpty) {
-            toLatLng = LatLng(toLocs[0].latitude, toLocs[0].longitude);
-          }
+          toLatLng = await _geocodeAddress(toAddress);
         }
       } catch (e) {
         debugPrint("Geocoding failed for drop address ($toAddress): $e");
@@ -144,6 +137,26 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
         _mapController.move(driverLatLng, 15);
       }
     }
+  }
+
+  Future<LatLng?> _geocodeAddress(String address) async {
+    const String googleAPIKey = "AIzaSyC41U3p08LqY8G15ruxDCEfTvBLkG_OrsM";
+    final url =
+        "https://maps.googleapis.com/maps/api/geocode/json?address=${Uri.encodeComponent(address)}&key=$googleAPIKey";
+    try {
+      final response = await http.get(Uri.parse(url));
+      final data = json.decode(response.body);
+      if (data['status'] == 'OK') {
+        final lat = data['results'][0]['geometry']['location']['lat'];
+        final lng = data['results'][0]['geometry']['location']['lng'];
+        return LatLng(lat, lng);
+      } else {
+        debugPrint("Google Geocoding failed: ${data['status']}");
+      }
+    } catch (e) {
+      debugPrint("Google Geocoding exception: $e");
+    }
+    return null;
   }
 
   Future<void> _fetchRouteOSRM(LatLng from, LatLng to) async {

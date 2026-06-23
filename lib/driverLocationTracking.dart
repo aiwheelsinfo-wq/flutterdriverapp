@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:geocoding/geocoding.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:location/location.dart' as loc;
 import 'api_config.dart';
@@ -59,11 +58,7 @@ class _TripLiveMappingState extends State<Driverlocationtracking> {
       // 2. Convert address to LatLng
       try {
         if (fromAddress.isNotEmpty) {
-          final fromLocations = await locationFromAddress(fromAddress);
-          if (fromLocations.isNotEmpty) {
-            fromLatLng =
-                LatLng(fromLocations[0].latitude, fromLocations[0].longitude);
-          }
+          fromLatLng = await _geocodeAddress(fromAddress);
         }
       } catch (e) {
         debugPrint("Geocoding failed for pickup address: $e");
@@ -94,10 +89,8 @@ class _TripLiveMappingState extends State<Driverlocationtracking> {
           toAddress != "Local Duty" &&
           toAddress != "N/A") {
         try {
-          final toLocations = await locationFromAddress(toAddress);
-          if (toLocations.isNotEmpty) {
-            toLatLng = LatLng(toLocations[0].latitude, toLocations[0].longitude);
-
+          toLatLng = await _geocodeAddress(toAddress);
+          if (toLatLng != null) {
             if (fromLatLng != null) {
               await _fetchRouteFromGoogleDirectionsAPI(fromLatLng!, toLatLng!);
             }
@@ -128,6 +121,26 @@ class _TripLiveMappingState extends State<Driverlocationtracking> {
       _mapController
           ?.animateCamera(CameraUpdate.newLatLngZoom(driverLatLng!, 14));
     }
+  }
+
+  Future<LatLng?> _geocodeAddress(String address) async {
+    const String googleAPIKey = "AIzaSyC41U3p08LqY8G15ruxDCEfTvBLkG_OrsM";
+    final url =
+        "https://maps.googleapis.com/maps/api/geocode/json?address=${Uri.encodeComponent(address)}&key=$googleAPIKey";
+    try {
+      final response = await http.get(Uri.parse(url));
+      final data = json.decode(response.body);
+      if (data['status'] == 'OK') {
+        final lat = data['results'][0]['geometry']['location']['lat'];
+        final lng = data['results'][0]['geometry']['location']['lng'];
+        return LatLng(lat, lng);
+      } else {
+        debugPrint("Google Geocoding failed: ${data['status']}");
+      }
+    } catch (e) {
+      debugPrint("Google Geocoding exception: $e");
+    }
+    return null;
   }
 
   Future<void> _fetchRouteFromGoogleDirectionsAPI(

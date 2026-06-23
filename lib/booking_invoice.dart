@@ -64,6 +64,11 @@ class _InvoicePageState extends State<InvoicePage> {
     'total_amount': '0',
     'agent_commission': '0',
     'permit_charge': '0',
+    'discount_type': '',
+    'discount_value': '0',
+    'discount_name': '',
+    'base_charge': '0',
+    'paid_amount': '0',
   };
 
   @override
@@ -137,6 +142,16 @@ class _InvoicePageState extends State<InvoicePage> {
                 (data['agent_commission'] ?? '0').toString();
             invoiceData['permit_charge'] =
                 (data['permit_charge'] ?? '0').toString();
+            invoiceData['discount_type'] =
+                (data['discount_type'] ?? '').toString();
+            invoiceData['discount_value'] =
+                (data['discount_value'] ?? '0').toString();
+            invoiceData['discount_name'] =
+                (data['discount_name'] ?? '').toString();
+            invoiceData['base_charge'] =
+                (data['base_charge'] ?? '0').toString();
+            invoiceData['paid_amount'] =
+                (data['paid_amount'] ?? '0').toString();
           });
         } else {
           print(data['error']);
@@ -404,6 +419,7 @@ class _InvoicePageState extends State<InvoicePage> {
           driver_allowanceXdays;
     }
 
+    double base_charge = 0.0;
     if (invoiceData['trip_type'] == 'One-way') {
       double distance = double.parse(invoiceData['distance'].toString());
       double driver_allowance;
@@ -419,6 +435,11 @@ class _InvoicePageState extends State<InvoicePage> {
       gst = baceAmount * gstPercent / 100;
       netTotal = baceAmount + gst + parking_charge;
 
+      base_charge = double.tryParse(invoiceData['base_charge']?.toString() ?? '') ?? 0.0;
+      if (base_charge == 0.0) {
+        base_charge = baceAmount - agent_commission;
+      }
+
       // Format all values to 2 decimal places
       baceAmount = double.parse(baceAmount.toStringAsFixed(2));
       totalbeforeGst = double.parse(totalbeforeGst.toStringAsFixed(2));
@@ -429,6 +450,9 @@ class _InvoicePageState extends State<InvoicePage> {
     if (invoiceData['trip_type'] == 'Local-taxi') {
       netTotal = double.parse(invoiceData['total_amount'].toString());
     }
+
+    final double advancedAmount = double.tryParse(invoiceData['paid_amount']?.toString() ?? '') ?? 0.0;
+    final double balanceAmount = (netTotal ?? 0.0) - advancedAmount;
 
     return Table(
       columnWidths: {
@@ -473,6 +497,8 @@ class _InvoicePageState extends State<InvoicePage> {
         _buildTableRow('Driver Allowance', '', '${driver_allowance ?? ""} '),
 
         if (invoiceData['trip_type'] == 'One-way') ...[
+          _buildTableRow('Base Amount', '', '${base_charge.toStringAsFixed(2)}'),
+          _buildTableRow('Agent Commission', '', '${agent_commission.toStringAsFixed(2)}'),
           _buildTableRow('Total Charge', '', '$baceAmount')
         ],
 
@@ -482,6 +508,8 @@ class _InvoicePageState extends State<InvoicePage> {
         ],
 
         _buildTableRow('TOTAL', '', '$netTotal'),
+        _buildTableRow('Advanced Amount', '', '${advancedAmount.toStringAsFixed(2)}'),
+        _buildTableRow('Balance Amount', '', '${balanceAmount.toStringAsFixed(2)}'),
 
         //   _buildTableRow('IGST 5%', '', '₹${igst.toStringAsFixed(2)}'),
         //   _buildTableRow('Total', '', '₹${totalAmt.toStringAsFixed(2)}'),

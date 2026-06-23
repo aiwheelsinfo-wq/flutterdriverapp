@@ -14,20 +14,25 @@ import 'car_list.dart';
 import 'checkAndRoot.dart';
 import 'login_page.dart';
 import 'api_config.dart';
+import 'booking_list.dart';
+import 'trip_accepting.dart';
+import 'services/notification_service.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final StreamController<RemoteMessage> notificationStreamController = StreamController<RemoteMessage>.broadcast();
 
 // ✅ Professional Light Amber Theme Constants
 const Color kPrimaryAmber = Color(0xFFFFB300);
 const Color kLightAmber = Color(0xFFFFF8E1);
 const Color kDarkText = Color(0xFF3E2723); // Fixed the typo here
 
-Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  debugPrint("📩 Background Message: ${message.notification?.title}");
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Initialize notifications
+  await NotificationService.instance.initialize();
+  await NotificationService.instance.setupFlutterNotifications();
 
   // 🔥 1. Request permission (MANDATORY)
   await FirebaseMessaging.instance.requestPermission();
@@ -37,14 +42,6 @@ void main() async {
   if (permission == LocationPermission.denied) {
     permission = await Geolocator.requestPermission();
   }
-
-  // 🔥 2. Foreground messages
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    debugPrint("📩 Foreground: ${message.notification?.title}");
-  });
-
-  // 🔥 3. Background / terminated messages
-  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
 
   if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
     await _setupTrackingService();
@@ -139,6 +136,7 @@ class RentoxApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Rentox Driver',
       theme: ThemeData(
@@ -242,6 +240,32 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(seconds: 3));
 
     if (!mounted) return;
+
+    // Check if there was an initial message that opened the app
+    try {
+      RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null && initialMessage.data['notification_type'] == 'new_booking') {
+        final String? bookingId = initialMessage.data['booking_id'];
+        if (bookingId != null && bookingId.isNotEmpty && storedPhone != null && storedPhone.isNotEmpty) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => BookingListPage(phoneNumber: storedPhone)),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DriverTripPage(
+                bookingId: bookingId,
+                phoneNumber: storedPhone,
+              ),
+            ),
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint("Error handling initial message: $e");
+    }
 
     Navigator.pushReplacement(
       context,

@@ -265,16 +265,27 @@ class _CompleatedListState extends State<CompleatedList> {
                             fontSize: 14)),
                   ],
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                      color: charcoal, borderRadius: BorderRadius.circular(12)),
-                  child: Text("₹${booking['vendor_amount']}",
-                      style: const TextStyle(
-                          color: primaryAmber,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16)),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text("Partner Earning",
+                        style: TextStyle(
+                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                          color: charcoal, borderRadius: BorderRadius.circular(12)),
+                      child: Text("₹${booking['vendor_amount']}",
+                          style: const TextStyle(
+                              color: primaryAmber,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -341,40 +352,126 @@ class _CompleatedListState extends State<CompleatedList> {
             ),
           ),
 
-          // Billing Receipt Section
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                const Row(children: [
-                  Text("FARE BREAKDOWN",
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
-                          letterSpacing: 1)),
-                  Expanded(child: Divider(indent: 8))
-                ]),
-                const SizedBox(height: 8),
-                ...charges.map((c) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(c["label"],
-                              style: const TextStyle(
-                                  fontSize: 13, color: charcoal)),
-                          Text("₹${c["value"].toStringAsFixed(2)}",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: charcoal)),
-                        ],
-                      ),
-                    )),
-              ],
+          // Fare breakdown for One-way trips
+          if ((booking['trip_type'] ?? '').toString().toLowerCase().contains('one-way') ||
+              (booking['trip_type'] ?? '').toString().toLowerCase().contains('one way') ||
+              (booking['trip_type'] ?? '').toString().toLowerCase().contains('round') ||
+              (booking['trip_type'] ?? '').toString().toLowerCase().contains('local-taxi') ||
+              (booking['trip_type'] ?? '').toString().toLowerCase().contains('local_taxi') ||
+              (booking['trip_type'] ?? '').toString().toLowerCase().contains('local taxi')) ...[
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                title: const Text(
+                  "View Fare & Earnings Breakdown",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: primaryAmber,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                children: [
+                  Builder(
+                    builder: (context) {
+                      String tType = (booking['trip_type'] ?? '').toString().toLowerCase();
+                      if (tType.contains('local') && tType.contains('taxi')) {
+                        // For local taxi: vendor_amount = customer's paid amount (vendor gets 100%)
+                        double fare = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                        if (fare == 0) {
+                          fare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildFinancialSummaryRow("Total Fare", "₹${fare.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("Commission", "₹0"),
+                              _buildFinancialSummaryRow("Platform Fee", "₹0"),
+                              _buildFinancialSummaryRow("Vendor Earnings", "₹${fare.toStringAsFixed(0)}", isHighlight: true),
+                              _buildFinancialSummaryRow("Net Payable", "₹${fare.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
+                            ],
+                          ),
+                        );
+                      }
+                      if (tType.contains('round')) {
+                        double finalTotalAmount = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        double advancePaid = double.tryParse(booking['paid_amount']?.toString() ?? '') ?? 0.0;
+                        double remainingCollect = finalTotalAmount - advancePaid;
+                        if (remainingCollect < 0) remainingCollect = 0.0;
+                        double totalEarnings = remainingCollect;
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildFinancialSummaryRow("Customer Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("Remaining Amount Collected", "₹${remainingCollect.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("Your Total Earnings", "₹${totalEarnings.toStringAsFixed(0)}", isHighlight: true),
+                            ],
+                          ),
+                        );
+                      }
+
+                      double fare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                      if (fare == 0) {
+                        double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                        fare = vendorAmt / 0.90;
+                      }
+
+                      double advancePaid = fare * 0.25;
+                      double remainingCollect = fare * 0.75;
+                      double totalEarnings = fare * 0.90;
+                      double settlementEligible = advancePaid * 0.60;
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFinancialSummaryRow("Customer Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}"),
+                            _buildFinancialSummaryRow("Remaining Amount to Collect", "₹${remainingCollect.toStringAsFixed(0)}"),
+                            _buildFinancialSummaryRow("Your Total Earnings", "₹${totalEarnings.toStringAsFixed(0)}", isHighlight: true),
+                            _buildFinancialSummaryRow("Advance Settlement Eligible", "₹${settlementEligible.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
+                            _buildFinancialSummaryRow("Settlement Status", "Eligible (Pending Verification)", isHighlight: false),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.green[50],
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.green.shade100),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.info_outline, color: Colors.green[800], size: 16),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      "₹${settlementEligible.toStringAsFixed(0)} will be credited to your registered bank account within 7 days after successful trip completion and payment verification.",
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.green[900],
+                                        fontWeight: FontWeight.w500,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ),
+                      );
+                    }
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
 
           // Bottom Bar
           Container(
@@ -414,6 +511,33 @@ class _CompleatedListState extends State<CompleatedList> {
             style: const TextStyle(
                 fontSize: 11, fontWeight: FontWeight.bold, color: charcoal)),
       ],
+    );
+  }
+
+  Widget _buildFinancialSummaryRow(String label, String value, {bool isHighlight = false, Color? highlightColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+              color: isHighlight ? charcoal : Colors.grey[600],
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isHighlight ? (highlightColor ?? primaryAmber) : charcoal,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

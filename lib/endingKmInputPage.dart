@@ -168,17 +168,12 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
       // Logic Branching (As per your original formulas)
       if (tripType == 'One-way') {
         finalTotalAmount = totalAmountDB! + parking + toll + permit;
-        finalAgniAmount = agniAmountDB;
-        finalVendorAmount = vendorAmountDB! + parking + toll + permit;
+        finalVendorAmount = (totalAmountDB! * 0.90) + parking + toll + permit;
+        finalAgniAmount = totalAmountDB! * 0.10;
       } else if (tripType == 'Local-taxi') {
-        double maxKm = max(runningKm, double.tryParse(distance ?? '0') ?? 0);
-        finalTotalAmount = (baseAmount ?? 0) +
-            (maxKm * (kmRate ?? 0)) +
-            toll +
-            parking +
-            permit;
-        finalVendorAmount = finalTotalAmount;
-        finalAgniAmount = 0;
+        finalTotalAmount = totalAmountDB! + parking + toll + permit;
+        finalVendorAmount = vendorAmountDB! + parking + toll + permit;
+        finalAgniAmount = agniAmountDB;
       } else if (tripType == 'Local-Duty') {
         double exKmCharge = 0,
             exHrsCharge = 0,

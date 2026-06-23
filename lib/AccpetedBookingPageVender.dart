@@ -117,7 +117,8 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
           final serverCancelled = all
               .where((b) =>
                   b['booking_status'] == 'Customer Cancelled' ||
-                  b['booking_status'] == 'Cancellation Requested')
+                  b['booking_status'] == 'Cancellation Requested' ||
+                  b['booking_status'] == 'Cancelled')
               .toList();
 
           // Also merge any separate cancelledBookings array the server may return
@@ -129,7 +130,19 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
             setState(() {
               // ALWAYS update — even if empty — so trips disappear instantly
               activeBookings = active;
-              cancelledBookings = allCancelled;
+              
+              // Merge any new cancelled bookings returned by this endpoint,
+              // without wiping out the list populated by the dedicated _fetchCancelledBookings() API.
+              if (allCancelled.isNotEmpty) {
+                final existingIds = cancelledBookings.map((b) => b['booking_id']?.toString()).toSet();
+                for (var b in allCancelled) {
+                  final bId = b['booking_id']?.toString();
+                  if (bId != null && !existingIds.contains(bId)) {
+                    cancelledBookings.add(b);
+                    existingIds.add(bId);
+                  }
+                }
+              }
               isLoading = false;
             });
           }
@@ -165,22 +178,8 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
               (data['cancelledBookings'] as List<dynamic>?) ?? [];
           if (mounted) {
             setState(() {
-              // Merge with any cancellations already found in acceptedBookings
-              // Use booking_id as key to avoid duplicates
-              final existingIds =
-                  cancelledBookings.map((b) => b['booking_id']).toSet();
-              for (var b in fromServer) {
-                if (!existingIds.contains(b['booking_id'])) {
-                  cancelledBookings.add(b);
-                  existingIds.add(b['booking_id']);
-                }
-              }
-              // Also replace with server version if already present (fresher data)
-              cancelledBookings = [
-                ...fromServer,
-                ...cancelledBookings.where((b) =>
-                    !fromServer.any((s) => s['booking_id'] == b['booking_id']))
-              ];
+              // Directly use the authoritative list of cancelled bookings from the server
+              cancelledBookings = fromServer;
             });
           }
         }
@@ -394,6 +393,8 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
 
   // ── Cancellation History Card ─────────────────────────────────────────────
   Widget _buildCancelledCard(Map<String, dynamic> booking) {
+    final bool isLocalTaxi = (booking['trip_type'] ?? '').toString().toLowerCase().contains('local') &&
+                             (booking['trip_type'] ?? '').toString().toLowerCase().contains('taxi');
     final DateTime? date = DateTime.tryParse(booking['date'] ?? "");
     final String formattedDate =
         date != null ? DateFormat('dd MMM, yyyy').format(date) : "N/A";
@@ -441,14 +442,14 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
                         color: Colors.red,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.cancel, color: Colors.white, size: 12),
-                          SizedBox(width: 4),
+                          const Icon(Icons.cancel, color: Colors.white, size: 12),
+                          const SizedBox(width: 4),
                           Text(
-                            "CUSTOMER CANCELLED",
-                            style: TextStyle(
+                            isLocalTaxi ? "BOOKING CANCELLED BY CUSTOMER" : "CUSTOMER CANCELLED",
+                            style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 10,

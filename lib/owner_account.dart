@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'checkAndRoot.dart';
 import 'api_config.dart';
+import 'settlements_page.dart';
 
 
 class OwnerProfileScreen extends StatefulWidget {
@@ -131,6 +132,26 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                           ownerData!["phone_number"]),
                       _infoTile(
                           Icons.email, "Email Address", ownerData!["email"]),
+                    ]),
+                    const SizedBox(height: 20),
+                    _buildSectionTitle("Payments & Settlements"),
+                    _buildInfoCard([
+                      ListTile(
+                        leading: const Icon(Icons.account_balance_wallet, color: primaryAmber, size: 20),
+                        title: const Text("Vendor Settlements", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: charcoal)),
+                        subtitle: const Text("Track trip advance settlements", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SettlementsPage(
+                                phoneNumber: ownerData!["phone_number"] ?? "",
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ]),
                     const SizedBox(height: 20),
                     _buildSectionTitle("Personal Details"),
