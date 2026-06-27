@@ -309,8 +309,7 @@ class _InvoicePageState extends State<InvoicePage> {
           double.tryParse(invoiceData['extra_hours_price'] ?? '0') ?? 0;
       final packageBaseFare =
           double.tryParse(invoiceData['packageBaseFare'] ?? '0') ?? 0;
-      double driverAllowance =
-          double.tryParse(invoiceData['driver_allowance'] ?? '0') ?? 0;
+      double driverAllowance = 0.0;
 
       // Extra km
       extraKm = totalKm > packageKm ? totalKm - packageKm : 0;
@@ -353,6 +352,7 @@ class _InvoicePageState extends State<InvoicePage> {
       totalBeforeGst = double.parse(totalBeforeGst.toStringAsFixed(2));
       gst = double.parse(gst.toStringAsFixed(2));
       netTotal = double.parse(netTotal.toStringAsFixed(2));
+      driver_allowance = driverAllowance.toString();
     }
 
     if (invoiceData['trip_type'] == 'Round-Trip') {

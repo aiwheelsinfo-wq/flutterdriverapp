@@ -25,6 +25,7 @@ import 'owner_account.dart';
 import 'car_reg_form.dart';
 import 'driver_add_form.dart';
 import 'settlements_page.dart';
+import 'package:geolocator/geolocator.dart';
 
 class BookingListPage extends StatefulWidget {
   final String phoneNumber;
@@ -58,6 +59,7 @@ class _BookingListPageState extends State<BookingListPage> {
   @override
   void initState() {
     super.initState();
+    _updateCurrentLocation();
     fetchBookings();
     _startLiveUpdateTimer();
 
@@ -82,8 +84,30 @@ class _BookingListPageState extends State<BookingListPage> {
         Timer.periodic(const Duration(seconds: 15), (timer) => fetchBookings());
   }
 
+  Future<void> _updateCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.medium);
+        
+        await http.post(
+          Uri.parse(ApiConfig.updateLocation),
+          body: {
+            'driver_id': widget.phoneNumber,
+            'latitude': position.latitude.toString(),
+            'longitude': position.longitude.toString(),
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint("Update location on dashboard error: $e");
+    }
+  }
+
   // --- API CALLS ---
   Future<void> fetchBookings() async {
+    _updateCurrentLocation();
     String bookingApiUrl = ApiConfig.getBookings;
     try {
       var response = await http.post(

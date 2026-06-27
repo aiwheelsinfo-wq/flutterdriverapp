@@ -27,6 +27,7 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
   String? selectedDriver;
   bool isLoading = true;
   bool isTripAccepted = false;
+  bool isSubmitting = false;
   String? phoneNumber;
 
   Map<String, String> vehicleStatus = {};
@@ -131,7 +132,7 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
       return const SizedBox.shrink();
     }
 
-    if (tripType == 'Round-Trip') {
+    if (tripType == 'Round-Trip' || tripType == 'Local-Duty') {
       return const SizedBox.shrink();
     }
 
@@ -237,8 +238,6 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
             ],
           ),
           const Divider(height: 24),
-          _buildSummaryRow("Customer Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}", isHighlight: false),
-          const SizedBox(height: 12),
           _buildSummaryRow(
             "Remaining Amount to Collect", 
             "₹${remainingCollect.toStringAsFixed(0)}", 
@@ -466,6 +465,8 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
       return;
     }
 
+    setState(() => isSubmitting = true);
+
     String? phoneNumber = await secureStorage.read(key: "phone_number");
     String vehicleId = selectedVehicle!;
     String driverId = selectedDriver!.split('\n').last;
@@ -498,6 +499,9 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
 
         // ✅ Delay a bit so user can see success message
         Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            setState(() => isSubmitting = false);
+          }
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
                 builder: (context) => BookingListPage(
@@ -507,6 +511,7 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
           );
         });
       } else {
+        setState(() => isSubmitting = false);
         _showStatusDialog(
           "Warning",
           resData['message'] ?? "Selection conflict detected.",
@@ -515,6 +520,7 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
         );
       }
     } catch (e) {
+      setState(() => isSubmitting = false);
       _showStatusDialog("Error", e.toString(), Icons.error, errorRed);
     }
   }
@@ -729,7 +735,7 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
 
   Widget _buildSubmitButton() {
     bool canSubmit =
-        selectedDriver != null && selectedVehicle != null && isTripAccepted;
+        selectedDriver != null && selectedVehicle != null && isTripAccepted && !isSubmitting;
     return Container(
       height: 56,
       decoration: BoxDecoration(
@@ -753,9 +759,18 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
         ),
-        child: const Text("CONFIRM ASSIGNMENT",
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        child: isSubmitting
+            ? const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 3,
+                ),
+              )
+            : const Text("CONFIRM ASSIGNMENT",
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
       ),
     );
   }

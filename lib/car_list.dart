@@ -395,21 +395,25 @@ class _CarListPageState extends State<CarListPage> {
   }
 
   Widget _buildLicensePlate(String plate) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.black87, width: 1.5)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 3, height: 15, color: Colors.blue),
-          const SizedBox(width: 5),
-          Text(plate,
-              style: GoogleFonts.robotoCondensed(
-                  fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 14)),
-        ],
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.black87, width: 1.5)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 3, height: 15, color: Colors.blue),
+            const SizedBox(width: 5),
+            Text(plate,
+                style: GoogleFonts.robotoCondensed(
+                    fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 14)),
+          ],
+        ),
       ),
     );
   }

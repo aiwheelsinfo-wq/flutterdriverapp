@@ -179,16 +179,31 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
             exHrsCharge = 0,
             exKmChargeDr = 0,
             exHrsChargeDr = 0;
+        
+        final int minutes = duration.inMinutes.remainder(60);
+        int roundedHours = duration.inHours;
+        if (minutes > 30) {
+          roundedHours += 1;
+        }
+
         if (runningKm > packageKm!) {
           double exKM = runningKm - packageKm!;
           exKmCharge = exKM * extraKMAmount!;
           exKmChargeDr = exKM * extraKMAmountForDriver!;
         }
-        if (hoursDifference > packageHours!) {
-          double exHrs = hoursDifference - packageHours!;
+        if (roundedHours > packageHours!) {
+          double exHrs = roundedHours - packageHours!;
           exHrsCharge = exHrs * extraHoursAmount!;
           exHrsChargeDr = exHrs * extraHoursAmountForDriver!;
         }
+        double localDriverAllowance = 0.0;
+        bool isStartBefore5AM = startDateTime.hour < 5;
+        bool isEndAfter1130PM = endDateTime.hour > 23 ||
+            (endDateTime.hour == 23 && endDateTime.minute > 30);
+        if (isStartBefore5AM || isEndAfter1130PM) {
+          localDriverAllowance = driverAllowance ?? 0.0;
+        }
+
         double totalBeforGst = baseAmount! + exKmCharge + exHrsCharge;
         finalTotalAmount = totalBeforGst +
             (totalBeforGst * (gstPercent ?? 0) / 100) +
@@ -196,13 +211,15 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
             parking +
             permit +
             agentCommission! +
-            (agentCommission! * (gstPercent ?? 0) / 100);
+            (agentCommission! * (gstPercent ?? 0) / 100) +
+            localDriverAllowance;
         finalVendorAmount = driverRate! +
             exKmChargeDr +
             exHrsChargeDr +
             toll +
             parking +
-            permit;
+            permit +
+            localDriverAllowance;
         finalAgniAmount = finalTotalAmount - finalVendorAmount;
       } else if (tripType == 'Round-Trip') {
         int days = duration.inDays;

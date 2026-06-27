@@ -121,9 +121,10 @@ void onStart(ServiceInstance service) async {
       );
 
       final data = jsonDecode(response.body);
-      if (data['today_trip'] == false) {
-        service.stopSelf();
-      }
+      // Background service continues running to keep location coordinates updated.
+      // if (data['today_trip'] == false) {
+      //   service.stopSelf();
+      // }
     } catch (e) {
       debugPrint("Update Error: $e");
     }
