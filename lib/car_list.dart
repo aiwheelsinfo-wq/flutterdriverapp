@@ -118,7 +118,11 @@ class _CarListPageState extends State<CarListPage> {
 
   bool isBookedToday(List bookings) {
     String today = DateTime.now().toString().split(" ")[0];
-    return bookings.any((b) => b["date"] == today);
+    return bookings.any((b) {
+      if (b["date"] != today) return false;
+      String status = b["status"]?.toString() ?? "";
+      return status != "Completed" && status != "Cancelled" && status != "Customer Cancelled";
+    });
   }
 
   void _showSnackBar(String msg, Color color) {

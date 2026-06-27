@@ -445,7 +445,11 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
 
   bool _isBookedToday(List bookings) {
     String today = DateTime.now().toString().split(" ")[0];
-    return bookings.any((b) => b["date"] == today);
+    return bookings.any((b) {
+      if (b["date"] != today) return false;
+      String status = b["status"]?.toString() ?? "";
+      return status != "Completed" && status != "Cancelled" && status != "Customer Cancelled";
+    });
   }
 
   void _showSnackBar(String message) {

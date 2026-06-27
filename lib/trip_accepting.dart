@@ -193,7 +193,11 @@ class _DriverTripPageState extends State<DriverTripPage> {
 
   bool _isBookedToday(List bookings) {
     String today = DateTime.now().toString().split(" ")[0];
-    return bookings.any((b) => b["date"] == today);
+    return bookings.any((b) {
+      if (b["date"] != today) return false;
+      String status = b["status"]?.toString() ?? "";
+      return status != "Completed" && status != "Cancelled" && status != "Customer Cancelled";
+    });
   }
 
   Future<void> acceptTrip() async {
