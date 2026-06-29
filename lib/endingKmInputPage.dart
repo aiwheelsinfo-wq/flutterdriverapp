@@ -133,6 +133,7 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
     setState(() => _isSubmitting = true);
 
     double? finalAgniAmount, finalVendorAmount, finalTotalAmount;
+    double recalculatedAgentComm = agentCommission ?? 0.0;
     double parking = double.tryParse(_parkingChargeController.text) ?? 0;
     double toll = double.tryParse(_tollChargeController.text) ?? 0;
     double permit = double.tryParse(_permitChargeController.text) ?? 0;
@@ -234,12 +235,21 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
           if (startDateTime.hour < 6 ||
               (startDateTime.hour == 6 && startDateTime.minute < 30)) days += 1;
         }
-        double mKm = max(runningKm, dailyLimit! * days);
+        double mKm = runningKm; // actual running km, no daily minimum cap
         double drAllowXDays = driverAllowance! * days;
+        
+        // Calculate the rate per KM for agent commission
+        double agentRate = 0.0;
+        int divisorDays = days <= 0 ? 1 : days;
+        if (agentCommission! > 0) {
+          agentRate = agentCommission! / (300 * divisorDays);
+        }
+        recalculatedAgentComm = agentRate * runningKm;
+
         double bAmount = mKm * (kmRate ?? 0);
-        double beforGst = bAmount + agentCommission!;
+        double beforGst = bAmount + recalculatedAgentComm;
         double gst = beforGst * gstPercent! / 100;
-        finalAgniAmount = mKm * agniShare! + agentCommission! + gst;
+        finalAgniAmount = mKm * agniShare! + recalculatedAgentComm + gst;
         finalVendorAmount = (bAmount - mKm * agniShare!) +
             drAllowXDays +
             parking +
@@ -250,7 +260,7 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
             parking +
             toll +
             permit +
-            agentCommission! +
+            recalculatedAgentComm +
             gst;
       }
 
@@ -267,6 +277,7 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
           'totalAmount': finalTotalAmount?.toStringAsFixed(2),
           'vendor_amount': finalVendorAmount?.toStringAsFixed(2),
           'agni_amount': finalAgniAmount?.toStringAsFixed(2),
+          'agent_commission': recalculatedAgentComm.toStringAsFixed(2),
           'trip_type': tripType ?? '',
           'toll_charge': _tollChargeController.text,
           'parking_charge': _parkingChargeController.text,
