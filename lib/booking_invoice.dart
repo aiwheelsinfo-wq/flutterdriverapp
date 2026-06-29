@@ -152,6 +152,10 @@ class _InvoicePageState extends State<InvoicePage> {
                 (data['base_charge'] ?? '0').toString();
             invoiceData['paid_amount'] =
                 (data['paid_amount'] ?? '0').toString();
+            invoiceData['booked_start_date'] =
+                (data['date'] ?? '0000-00-00').toString();
+            invoiceData['booked_return_date'] =
+                (data['return_date'] ?? '0000-00-00').toString();
           });
         } else {
           print(data['error']);
@@ -289,7 +293,6 @@ class _InvoicePageState extends State<InvoicePage> {
     var maxKm;
     double kmRate =
         double.tryParse(invoiceData['kmRate']?.toString() ?? '') ?? 0.0;
-    double effectiveKmRate = kmRate;
     double gstPercent = double.parse(invoiceData['gstPercent'].toString());
     double? agent_commission =
         double.tryParse(invoiceData['agent_commission'].toString()) ?? 0.0;
@@ -357,64 +360,37 @@ class _InvoicePageState extends State<InvoicePage> {
     }
 
     if (invoiceData['trip_type'] == 'Round-Trip') {
-      Duration diff = endDateTime.difference(startDateTime);
-      int days = diff.inDays;
-      // int kmDays = days;
-      // int allowanceDays = days;
       double? driver_allowanceXdays;
-
       driver_allowance = invoiceData['driver_allowance'].toString();
-
       double runningKm = double.parse(invoiceData['closing_km'] ?? '0') -
           double.parse(invoiceData['starting_km'] ?? '0');
       double daily_limit = double.parse(invoiceData['daily_limit'] ?? '0');
+      commission = userType == 'agent' ? '+${agent_commission.toString()}' : '';
 
-      if (startDateTime.day == endDateTime.day) {
-        days += 1;
-        // allowanceDays += 1;
-        // driver_allowanceXdays = double.parse(driver_allowance) * days;
-      } else {
-        days += 1;
-
-        if (diff < Duration(hours: 24)) {
-          days += 1;
+      int days = 1;
+      try {
+        final bStartStr = invoiceData['booked_start_date'] ?? '';
+        final bReturnStr = invoiceData['booked_return_date'] ?? '';
+        if (bStartStr.isNotEmpty && bReturnStr.isNotEmpty && bStartStr != '0000-00-00' && bReturnStr != '0000-00-00') {
+          try {
+            final bStart = DateFormat('dd MMM yyyy').parse(bStartStr);
+            final bReturn = DateFormat('dd MMM yyyy').parse(bReturnStr);
+            days = bReturn.difference(bStart).inDays + 1;
+          } catch (_) {
+            final bStart = DateTime.parse(bStartStr);
+            final bReturn = DateTime.parse(bReturnStr);
+            days = bReturn.difference(bStart).inDays + 1;
+          }
         }
-
-        // if (endDateTime.hour >= 2) {
-        //   kmDays += 1;
-        // }
-
-        // driver_allowanceXdays = double.parse(driver_allowance) * days;
-
-        if ((endDateTime.hour == 23)) {
-          days += 1;
-        }
-
-        if (endDateTime.hour < 6 ||
-            (endDateTime.hour == 6 && endDateTime.minute < 30)) {
-          days += 1;
-        }
-
-        if (startDateTime.hour < 6 ||
-            (startDateTime.hour == 6 && startDateTime.minute < 30)) {
-          days += 1;
-        }
-
-        //driver_allowanceXdays = double.parse(driver_allowance) * days;
+      } catch (e) {
+        debugPrint("Error parsing booked dates: $e");
       }
-
-      double commissionRate = 0.0;
-      if (userType == 'agent' && daily_limit > 0 && days > 0) {
-        commissionRate = agent_commission / (daily_limit * days);
-      }
-      effectiveKmRate = kmRate + commissionRate;
-      commission = ''; // Hide separate + commission rate text
-
+      if (days <= 0) days = 1;
       maxKm = max(runningKm, (daily_limit * days));
       driver_allowanceXdays = double.parse(driver_allowance) * days;
       driver_allowance = driver_allowanceXdays.toString();
       totalDays = days;
-      baceAmount = (maxKm ?? 0) * (effectiveKmRate);
+      baceAmount = (maxKm ?? 0) * (kmRate) + agent_commission;
 
       gst = baceAmount! * gstPercent / 100;
 
@@ -494,7 +470,7 @@ class _InvoicePageState extends State<InvoicePage> {
         ],
         if (invoiceData['trip_type'] == 'Round-Trip') ...[
           _buildTableRow(
-              'Total Km charge', '$maxKm x ${effectiveKmRate.toStringAsFixed(1)}', '${baceAmount?.toStringAsFixed(2) ?? "0.00"}'),
+              'Total Km charge', '$maxKm x $kmRate $commission', '$baceAmount'),
           _buildTableRow('Total Days', '$totalDays', ''),
         ],
 
