@@ -308,15 +308,20 @@ class _CompleatedListState extends State<CompleatedList> {
                           double rtCommRate = (rtComm > 0 && rtDays > 0 && rtDailyLimit > 0) ? (rtComm / (rtDailyLimit * rtDays)).roundToDouble() : 0.0;
                           double rtBase = rtMaxKm * (rtKmRate + rtCommRate);
 
-                          double rtAgniShare = double.tryParse(booking['agni_share']?.toString() ?? '0') ?? 0.0;
+                          double rtGstPct = double.tryParse(booking['gstPercent']?.toString() ?? '0') ?? 0.0;
+                          double rtGst = rtBase * rtGstPct / 100;
                           double rtPark = double.tryParse(booking['parking_charge']?.toString() ?? '0') ?? 0.0;
                           double rtToll = double.tryParse(booking['toll_charge']?.toString() ?? '0') ?? 0.0;
                           double rtPermit = double.tryParse(booking['permit_charge']?.toString() ?? '0') ?? 0.0;
                           double rtAllowDay = double.tryParse(booking['driver_allowance']?.toString() ?? '0') ?? 0.0;
                           double rtAllowXDays = rtAllowDay * rtDays;
 
-                          double dynamicVendorAmount = (rtBase - rtMaxKm * rtAgniShare) + rtAllowXDays + rtPark + rtToll + rtPermit;
-                          return Text("₹${dynamicVendorAmount.toStringAsFixed(2)}",
+                          double finalTotalAmount = rtBase + rtGst + rtPark + rtToll + rtPermit + rtAllowXDays;
+                          double advancePaid = double.tryParse(booking['paid_amount']?.toString() ?? '') ?? 0.0;
+                          double remainingCollect = finalTotalAmount - advancePaid;
+                          if (remainingCollect < 0) remainingCollect = 0.0;
+
+                          return Text("₹${remainingCollect.toStringAsFixed(2)}",
                               style: const TextStyle(
                                   color: primaryAmber,
                                   fontWeight: FontWeight.bold,
