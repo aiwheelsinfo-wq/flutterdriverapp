@@ -242,15 +242,18 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
         double agentRate = 0.0;
         int divisorDays = days <= 0 ? 1 : days;
         if (agentCommission! > 0) {
-          agentRate = agentCommission! / (300 * divisorDays);
+          agentRate = (agentCommission! / (300 * divisorDays)).roundToDouble();
         }
         recalculatedAgentComm = agentRate * runningKm;
 
-        double bAmount = mKm * (kmRate ?? 0);
-        double beforGst = bAmount + recalculatedAgentComm;
+        double baseRate = kmRate ?? 0.0;
+        double agniCommRate = agniShare ?? 0.0;
+        double finalRate = baseRate + agniCommRate + agentRate;
+
+        double bAmount = mKm * finalRate;
+        double beforGst = bAmount;
         double gst = beforGst * gstPercent! / 100;
-        finalAgniAmount = mKm * agniShare! + recalculatedAgentComm + gst;
-        finalVendorAmount = (bAmount - mKm * agniShare!) +
+        finalVendorAmount = (mKm * baseRate) +
             drAllowXDays +
             parking +
             toll +
@@ -260,8 +263,8 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
             parking +
             toll +
             permit +
-            recalculatedAgentComm +
             gst;
+        finalAgniAmount = (mKm * agniCommRate) + recalculatedAgentComm + gst;
       }
 
       final response = await http.post(
