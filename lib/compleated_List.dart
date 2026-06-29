@@ -482,7 +482,6 @@ class _CompleatedListState extends State<CompleatedList> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildFinancialSummaryRow("Customer Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}"),
                               _buildFinancialSummaryRow("Remaining Amount Collected", "₹${remainingCollect.toStringAsFixed(0)}"),
                               _buildFinancialSummaryRow("Your Total Earnings", "₹${totalEarnings.toStringAsFixed(0)}", isHighlight: true),
                             ],
