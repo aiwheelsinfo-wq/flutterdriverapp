@@ -38,7 +38,6 @@ class _InvoicePageState extends State<InvoicePage> {
     'to': 'Not Generated',
     'trip_date': 'Not Generated',
     'starting_km': '00',
-    'agni_share': '0',
     'closing_km': '00',
     'starting_date': '0000-00-00',
     'closing_date': '0000-00-00',
@@ -131,8 +130,6 @@ class _InvoicePageState extends State<InvoicePage> {
             invoiceData['gstPercent'] = (data['gstPercent'] ?? '0').toString();
             invoiceData['driver_allowance'] =
                 (data['driver_allowance'] ?? '0').toString();
-            invoiceData['agni_share'] =
-                (data['agni_share'] ?? '0').toString();
             invoiceData['trip_type'] =
                 (data['trip_type'] ?? 'Not Generated').toString();
             invoiceData['daily_limit'] =
@@ -292,6 +289,7 @@ class _InvoicePageState extends State<InvoicePage> {
     var maxKm;
     double kmRate =
         double.tryParse(invoiceData['kmRate']?.toString() ?? '') ?? 0.0;
+    double effectiveKmRate = kmRate;
     double gstPercent = double.parse(invoiceData['gstPercent'].toString());
     double? agent_commission =
         double.tryParse(invoiceData['agent_commission'].toString()) ?? 0.0;
@@ -371,8 +369,6 @@ class _InvoicePageState extends State<InvoicePage> {
           double.parse(invoiceData['starting_km'] ?? '0');
       double daily_limit = double.parse(invoiceData['daily_limit'] ?? '0');
 
-      commission = userType == 'agent' ? '+${agent_commission.toString()}' : '';
-
       if (startDateTime.day == endDateTime.day) {
         days += 1;
         // allowanceDays += 1;
@@ -406,23 +402,19 @@ class _InvoicePageState extends State<InvoicePage> {
 
         //driver_allowanceXdays = double.parse(driver_allowance) * days;
       }
-      maxKm = runningKm;
+
+      double commissionRate = 0.0;
+      if (userType == 'agent' && daily_limit > 0 && days > 0) {
+        commissionRate = agent_commission / (daily_limit * days);
+      }
+      effectiveKmRate = kmRate + commissionRate;
+      commission = ''; // Hide separate + commission rate text
+
+      maxKm = max(runningKm, (daily_limit * days));
       driver_allowanceXdays = double.parse(driver_allowance) * days;
       driver_allowance = driver_allowanceXdays.toString();
       totalDays = days;
-
-      double agniShare = double.tryParse(invoiceData['agni_share']?.toString() ?? '') ?? 0.0;
-      double agentRate = 0.0;
-      int divisorDays = days <= 0 ? 1 : days;
-      if (agent_commission > 0) {
-        if (invoiceData['booking_status'] == 'Completed' && runningKm > 0) {
-          agentRate = (agent_commission / runningKm).roundToDouble();
-        } else {
-          agentRate = (agent_commission / (300 * divisorDays)).roundToDouble();
-        }
-      }
-      double finalRate = kmRate + agniShare + agentRate;
-      baceAmount = (maxKm ?? 0) * finalRate;
+      baceAmount = (maxKm ?? 0) * (effectiveKmRate);
 
       gst = baceAmount! * gstPercent / 100;
 
@@ -501,11 +493,8 @@ class _InvoicePageState extends State<InvoicePage> {
               '$extraHoursAmount'),
         ],
         if (invoiceData['trip_type'] == 'Round-Trip') ...[
-          _buildTableRow('Vehicle Base Rate', '', '₹${(kmRate + agentRate).toStringAsFixed(2)} / KM'),
-          _buildTableRow('Agni Commission', '', '₹${agniShare.toStringAsFixed(2)} / KM'),
-          _buildTableRow('Final Rate', '', '₹${finalRate.toStringAsFixed(2)} / KM'),
           _buildTableRow(
-              'Total Km charge', '${maxKm?.toStringAsFixed(0)} KM x ₹${finalRate.toStringAsFixed(2)}', '${baceAmount!.toStringAsFixed(2)}'),
+              'Total Km charge', '$maxKm x ${effectiveKmRate.toStringAsFixed(1)}', '${baceAmount.toStringAsFixed(2)}'),
           _buildTableRow('Total Days', '$totalDays', ''),
         ],
 
