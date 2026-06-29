@@ -501,10 +501,8 @@ class _InvoicePageState extends State<InvoicePage> {
               '$extraHoursAmount'),
         ],
         if (invoiceData['trip_type'] == 'Round-Trip') ...[
-          _buildTableRow('Vehicle Base Rate', '', '₹${kmRate.toStringAsFixed(2)} / KM'),
+          _buildTableRow('Vehicle Base Rate', '', '₹${(kmRate + agentRate).toStringAsFixed(2)} / KM'),
           _buildTableRow('Agni Commission', '', '₹${agniShare.toStringAsFixed(2)} / KM'),
-          if (agentRate > 0)
-            _buildTableRow('Agent Commission', '', '₹${agentRate.toStringAsFixed(2)} / KM'),
           _buildTableRow('Final Rate', '', '₹${finalRate.toStringAsFixed(2)} / KM'),
           _buildTableRow(
               'Total Km charge', '${maxKm?.toStringAsFixed(0)} KM x ₹${finalRate.toStringAsFixed(2)}', '${baceAmount!.toStringAsFixed(2)}'),
