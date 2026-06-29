@@ -222,18 +222,25 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
             localDriverAllowance;
         finalAgniAmount = finalTotalAmount - finalVendorAmount;
       } else if (tripType == 'Round-Trip') {
-        int days = duration.inDays;
-        if (startDateTime.day == endDateTime.day) {
-          days += 1;
-        } else {
-          days += 1;
-          if (duration < const Duration(hours: 24)) days += 1;
-          if (endDateTime.hour == 23) days += 1;
-          if (endDateTime.hour < 6 ||
-              (endDateTime.hour == 6 && endDateTime.minute < 30)) days += 1;
-          if (startDateTime.hour < 6 ||
-              (startDateTime.hour == 6 && startDateTime.minute < 30)) days += 1;
+        int days = 1;
+        try {
+          final bStartStr = date ?? '';
+          final bReturnStr = returnDate ?? '';
+          if (bStartStr.isNotEmpty && bReturnStr.isNotEmpty && bStartStr != '0000-00-00' && bReturnStr != '0000-00-00') {
+            try {
+              final bStart = DateFormat('dd MMM yyyy').parse(bStartStr);
+              final bReturn = DateFormat('dd MMM yyyy').parse(bReturnStr);
+              days = bReturn.difference(bStart).inDays + 1;
+            } catch (_) {
+              final bStart = DateTime.parse(bStartStr);
+              final bReturn = DateTime.parse(bReturnStr);
+              days = bReturn.difference(bStart).inDays + 1;
+            }
+          }
+        } catch (e) {
+          debugPrint("Error parsing booked dates: $e");
         }
+        if (days <= 0) days = 1;
         double mKm = max(runningKm, dailyLimit! * days);
         double drAllowXDays = driverAllowance! * days;
         double bAmount = mKm * (kmRate ?? 0);

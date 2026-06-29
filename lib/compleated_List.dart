@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 import 'package:intl/intl.dart';
 import 'api_config.dart';
 import 'checkAndRoot.dart';
@@ -280,35 +281,42 @@ class _CompleatedListState extends State<CompleatedList> {
                       decoration: BoxDecoration(
                           color: charcoal, borderRadius: BorderRadius.circular(12)),
                       child: Builder(builder: (context) {
-                        // For Round-Trip: compute actual total dynamically
-                        if ((booking['trip_type'] ?? '').toString().toLowerCase().contains('round')) {
-                          int rtD = 1;
+                        String tType = (booking['trip_type'] ?? '').toString().toLowerCase();
+                        if (tType.contains('round')) {
+                          int rtDays = 1;
                           try {
                             final s = booking['date']?.toString() ?? '';
                             final r = booking['return_date']?.toString() ?? '';
                             if (s.isNotEmpty && r.isNotEmpty && s != '0000-00-00' && r != '0000-00-00') {
                               try {
-                                rtD = DateFormat('dd MMM yyyy').parse(r).difference(DateFormat('dd MMM yyyy').parse(s)).inDays + 1;
+                                rtDays = DateFormat('dd MMM yyyy').parse(r).difference(DateFormat('dd MMM yyyy').parse(s)).inDays + 1;
                               } catch (_) {
-                                rtD = DateTime.parse(r).difference(DateTime.parse(s)).inDays + 1;
+                                rtDays = DateTime.parse(r).difference(DateTime.parse(s)).inDays + 1;
                               }
                             }
                           } catch (_) {}
-                          if (rtD <= 0) rtD = 1;
-                          double rtDL = parseDouble(booking['daily_limit']);
-                          double rtRunKm = (parseDouble(booking['closing_km']) - parseDouble(booking['starting_km'])).clamp(0, double.infinity);
-                          double rtMaxKm = rtRunKm > rtDL * rtD ? rtRunKm : rtDL * rtD;
-                          double rtKmR = parseDouble(booking['kmRate']);
-                          double rtComm = parseDouble(booking['agent_commission']);
-                          double rtCR = (rtComm > 0 && rtD > 0 && rtDL > 0) ? (rtComm / (rtDL * rtD)).roundToDouble() : 0.0;
-                          double rtBase = rtMaxKm * (rtKmR + rtCR);
-                          double rtGstP = parseDouble(booking['gstPercent']);
-                          double rtGst = rtBase * rtGstP / 100;
-                          double rtAllowDay = parseDouble(booking['driver_allowance']);
-                          double rtNet = rtBase + rtGst + parseDouble(booking['parking_charge']) + parseDouble(booking['toll_charge']) + parseDouble(booking['permit_charge']) + (rtAllowDay * rtD);
-                          double rtPaid = parseDouble(booking['paid_amount']);
-                          double rtBalance = (rtNet - rtPaid).clamp(0, double.infinity);
-                          return Text("₹${rtBalance.toStringAsFixed(2)}",
+                          if (rtDays <= 0) rtDays = 1;
+
+                          double rtDailyLimit = double.tryParse(booking['daily_limit']?.toString() ?? '0') ?? 0.0;
+                          double rtStartKm = double.tryParse(booking['starting_km']?.toString() ?? '0') ?? 0.0;
+                          double rtCloseKm = double.tryParse(booking['closing_km']?.toString() ?? '0') ?? 0.0;
+                          double rtRunKm = (rtCloseKm - rtStartKm).clamp(0, double.infinity);
+                          double rtMaxKm = max(rtRunKm, rtDailyLimit * rtDays);
+
+                          double rtKmRate = double.tryParse(booking['kmRate']?.toString() ?? '0') ?? 0.0;
+                          double rtComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
+                          double rtCommRate = (rtComm > 0 && rtDays > 0 && rtDailyLimit > 0) ? (rtComm / (rtDailyLimit * rtDays)).roundToDouble() : 0.0;
+                          double rtBase = rtMaxKm * (rtKmRate + rtCommRate);
+
+                          double rtAgniShare = double.tryParse(booking['agni_share']?.toString() ?? '0') ?? 0.0;
+                          double rtPark = double.tryParse(booking['parking_charge']?.toString() ?? '0') ?? 0.0;
+                          double rtToll = double.tryParse(booking['toll_charge']?.toString() ?? '0') ?? 0.0;
+                          double rtPermit = double.tryParse(booking['permit_charge']?.toString() ?? '0') ?? 0.0;
+                          double rtAllowDay = double.tryParse(booking['driver_allowance']?.toString() ?? '0') ?? 0.0;
+                          double rtAllowXDays = rtAllowDay * rtDays;
+
+                          double dynamicVendorAmount = (rtBase - rtMaxKm * rtAgniShare) + rtAllowXDays + rtPark + rtToll + rtPermit;
+                          return Text("₹${dynamicVendorAmount.toStringAsFixed(2)}",
                               style: const TextStyle(
                                   color: primaryAmber,
                                   fontWeight: FontWeight.bold,
@@ -431,39 +439,42 @@ class _CompleatedListState extends State<CompleatedList> {
                         );
                       }
                       if (tType.contains('round')) {
-                        // Calculate days from booked dates
-                        int days = 1;
+                        int rtDays = 1;
                         try {
                           final s = booking['date']?.toString() ?? '';
                           final r = booking['return_date']?.toString() ?? '';
                           if (s.isNotEmpty && r.isNotEmpty && s != '0000-00-00' && r != '0000-00-00') {
                             try {
-                              days = DateFormat('dd MMM yyyy').parse(r).difference(DateFormat('dd MMM yyyy').parse(s)).inDays + 1;
+                              rtDays = DateFormat('dd MMM yyyy').parse(r).difference(DateFormat('dd MMM yyyy').parse(s)).inDays + 1;
                             } catch (_) {
-                              days = DateTime.parse(r).difference(DateTime.parse(s)).inDays + 1;
+                              rtDays = DateTime.parse(r).difference(DateTime.parse(s)).inDays + 1;
                             }
                           }
                         } catch (_) {}
-                        if (days <= 0) days = 1;
+                        if (rtDays <= 0) rtDays = 1;
 
-                        // Dynamic calculation — same logic as invoice
-                        double dailyLimit = parseDouble(booking['daily_limit']);
-                        double runningKm = (parseDouble(booking['closing_km']) - parseDouble(booking['starting_km'])).clamp(0, double.infinity);
-                        double maxKm = runningKm > dailyLimit * days ? runningKm : dailyLimit * days;
-                        double kmRate = parseDouble(booking['kmRate']);
-                        double agentComm = parseDouble(booking['agent_commission']);
-                        double commRate = (agentComm > 0 && days > 0 && dailyLimit > 0) ? (agentComm / (dailyLimit * days)).roundToDouble() : 0.0;
-                        double baseAmount = maxKm * (kmRate + commRate);
-                        double gstPct = parseDouble(booking['gstPercent']);
-                        double gst = baseAmount * gstPct / 100;
-                        double parking = parseDouble(booking['parking_charge']);
-                        double toll = parseDouble(booking['toll_charge']);
-                        double permit = parseDouble(booking['permit_charge']);
-                        double allowDay = parseDouble(booking['driver_allowance']);
-                        double netTotal = baseAmount + gst + parking + toll + permit + (allowDay * days);
+                        double rtDailyLimit = double.tryParse(booking['daily_limit']?.toString() ?? '0') ?? 0.0;
+                        double rtStartKm = double.tryParse(booking['starting_km']?.toString() ?? '0') ?? 0.0;
+                        double rtCloseKm = double.tryParse(booking['closing_km']?.toString() ?? '0') ?? 0.0;
+                        double rtRunKm = (rtCloseKm - rtStartKm).clamp(0, double.infinity);
+                        double rtMaxKm = max(rtRunKm, rtDailyLimit * rtDays);
 
-                        double advancePaid = parseDouble(booking['paid_amount']);
-                        double remainingCollect = (netTotal - advancePaid).clamp(0, double.infinity);
+                        double rtKmRate = double.tryParse(booking['kmRate']?.toString() ?? '0') ?? 0.0;
+                        double rtComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
+                        double rtCommRate = (rtComm > 0 && rtDays > 0 && rtDailyLimit > 0) ? (rtComm / (rtDailyLimit * rtDays)).roundToDouble() : 0.0;
+                        double rtBase = rtMaxKm * (rtKmRate + rtCommRate);
+
+                        double rtGstPct = double.tryParse(booking['gstPercent']?.toString() ?? '0') ?? 0.0;
+                        double rtGst = rtBase * rtGstPct / 100;
+                        double rtPark = double.tryParse(booking['parking_charge']?.toString() ?? '0') ?? 0.0;
+                        double rtToll = double.tryParse(booking['toll_charge']?.toString() ?? '0') ?? 0.0;
+                        double rtPermit = double.tryParse(booking['permit_charge']?.toString() ?? '0') ?? 0.0;
+                        double rtAllowDay = double.tryParse(booking['driver_allowance']?.toString() ?? '0') ?? 0.0;
+                        double finalTotalAmount = rtBase + rtGst + rtPark + rtToll + rtPermit + (rtAllowDay * rtDays);
+
+                        double advancePaid = double.tryParse(booking['paid_amount']?.toString() ?? '') ?? 0.0;
+                        double remainingCollect = finalTotalAmount - advancePaid;
+                        if (remainingCollect < 0) remainingCollect = 0.0;
                         double totalEarnings = remainingCollect;
 
                         return Padding(
@@ -471,7 +482,6 @@ class _CompleatedListState extends State<CompleatedList> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildFinancialSummaryRow("Total Trip Fare", "₹${netTotal.toStringAsFixed(0)}"),
                               _buildFinancialSummaryRow("Customer Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}"),
                               _buildFinancialSummaryRow("Remaining Amount Collected", "₹${remainingCollect.toStringAsFixed(0)}"),
                               _buildFinancialSummaryRow("Your Total Earnings", "₹${totalEarnings.toStringAsFixed(0)}", isHighlight: true),
