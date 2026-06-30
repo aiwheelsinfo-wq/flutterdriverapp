@@ -71,6 +71,6 @@ class ApiConfig {
   static const String getSettlements = "$legacyPath/get_settlements.php";
   static const String getCancelledBookings = "$legacyPath/getCancelledBookingsForVendor.php";
 
-  // Third party
-  static const String fast2smsUrl = "https://www.fast2sms.com/dev/bulkV2";
+  // Third party (routed through our server to support both SMS and WhatsApp OTPs)
+  static const String fast2smsUrl = "$baseUrl/2025/send_otp.php";
 }
