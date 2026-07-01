@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'checkAndRoot.dart';
 import 'api_config.dart';
 import 'settlements_page.dart';
+import 'bank_details_page.dart';
 
 
 class OwnerProfileScreen extends StatefulWidget {
@@ -150,6 +151,31 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                               ),
                             ),
                           );
+                        },
+                      ),
+                      const Divider(height: 1, indent: 56, endIndent: 20),
+                      ListTile(
+                        leading: const Icon(Icons.account_balance, color: primaryAmber, size: 20),
+                        title: const Text("Bank Account Details", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: charcoal)),
+                        subtitle: const Text("Manage bank and UPI settings", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BankDetailsPage(
+                                phoneNumber: ownerData!["phone_number"] ?? "",
+                                currentHolder: ownerData!["bank_holder_name"] ?? "",
+                                currentAccNo: ownerData!["bank_account_no"] ?? "",
+                                currentIfsc: ownerData!["bank_ifsc"] ?? "",
+                                currentUpi: ownerData!["upi_id"] ?? "",
+                              ),
+                            ),
+                          ).then((updated) {
+                            if (updated == true) {
+                              fetchOwnerDetails();
+                            }
+                          });
                         },
                       ),
                     ]),
