@@ -399,9 +399,9 @@ class _InvoicePageState extends State<InvoicePage> {
       double effectiveKmRate = kmRate + commissionRate;
       baceAmount = (maxKm ?? 0) * effectiveKmRate;
 
-      commissionFormulaText = commissionRate > 0
-          ? '${kmRate.toStringAsFixed(1)} + ${commissionRate.toStringAsFixed(1)}'
-          : kmRate.toStringAsFixed(1);
+      commissionFormulaText = effectiveKmRate % 1 == 0
+          ? effectiveKmRate.toStringAsFixed(0)
+          : effectiveKmRate.toStringAsFixed(1);
 
       gst = baceAmount! * gstPercent / 100;
 
