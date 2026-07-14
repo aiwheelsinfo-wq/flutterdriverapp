@@ -290,6 +290,9 @@ class _InvoicePageState extends State<InvoicePage> {
     double? netTotal;
     String? driver_allowance;
     double? baceAmount;
+    double baseKmCharge = 0.0;
+    double agentCommissionAmount = 0.0;
+    double commissionRate = 0.0;
 
     var maxKm;
     double kmRate =
@@ -392,12 +395,15 @@ class _InvoicePageState extends State<InvoicePage> {
       driver_allowance = driver_allowanceXdays.toString();
       totalDays = days;
 
-      double commissionRate = 0.0;
+      double commissionRateVal = 0.0;
       if (agent_commission > 0 && days > 0 && daily_limit > 0) {
-        commissionRate = (agent_commission / (daily_limit * days)).roundToDouble();
+        commissionRateVal = (agent_commission / (daily_limit * days)).roundToDouble();
       }
-      double effectiveKmRate = kmRate + commissionRate;
-      baceAmount = (maxKm ?? 0) * effectiveKmRate;
+      commissionRate = commissionRateVal;
+      baseKmCharge = (maxKm ?? 0) * kmRate;
+      agentCommissionAmount = (maxKm ?? 0) * commissionRateVal;
+      double effectiveKmRate = kmRate + commissionRateVal;
+      baceAmount = baseKmCharge + agentCommissionAmount;
 
       commissionFormulaText = effectiveKmRate % 1 == 0
           ? effectiveKmRate.toStringAsFixed(0)

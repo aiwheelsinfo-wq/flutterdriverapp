@@ -327,6 +327,22 @@ class _CompleatedListState extends State<CompleatedList> {
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16));
                         }
+                        if (tType.contains('one-way') || tType.contains('one way')) {
+                          double fare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                          if (fare == 0) {
+                            double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                            fare = vendorAmt / 0.90;
+                          }
+                          double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
+                          double agentCommWithTax = agentComm * 1.05;
+                          double baseTripFare = fare - agentCommWithTax;
+                          double vendorEarnings = baseTripFare * 0.90;
+                          return Text("₹${vendorEarnings.toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                  color: primaryAmber,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16));
+                        }
                         return Text("₹${booking['vendor_amount']}",
                             style: const TextStyle(
                                 color: primaryAmber,
@@ -500,9 +516,13 @@ class _CompleatedListState extends State<CompleatedList> {
                         fare = vendorAmt / 0.90;
                       }
 
-                      double advancePaid = fare * 0.25;
-                      double remainingCollect = fare * 0.75;
-                      double totalEarnings = fare * 0.90;
+                      double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
+                      double agentCommWithTax = agentComm * 1.05;
+                      double baseTripFare = fare - agentCommWithTax;
+
+                      double advancePaid = baseTripFare * 0.25;
+                      double remainingCollect = baseTripFare * 0.75 + agentCommWithTax;
+                      double totalEarnings = baseTripFare * 0.90;
                       double settlementEligible = advancePaid * 0.60;
 
                       return Padding(

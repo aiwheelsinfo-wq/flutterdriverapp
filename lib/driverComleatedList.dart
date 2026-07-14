@@ -180,7 +180,22 @@ class _InvoicelistState extends State<Drivercomleatedlist> {
                                       children: [
                                         const Text("Partner Earning"),
                                         Text(
-                                          "₹${booking['vendor_amount'].toString()}",
+                                          () {
+                                            String tType = (booking['trip_type'] ?? '').toString().toLowerCase();
+                                            if (tType.contains('one-way') || tType.contains('one way')) {
+                                              double fare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                                              if (fare == 0) {
+                                                double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                                                fare = vendorAmt / 0.90;
+                                              }
+                                              double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
+                                              double agentCommWithTax = agentComm * 1.05;
+                                              double baseTripFare = fare - agentCommWithTax;
+                                              double vendorEarnings = baseTripFare * 0.90;
+                                              return "₹${vendorEarnings.toStringAsFixed(2)}";
+                                            }
+                                            return "₹${booking['vendor_amount'].toString()}";
+                                          }(),
                                           style: const TextStyle(fontSize: 20),
                                         ),
                                       ],

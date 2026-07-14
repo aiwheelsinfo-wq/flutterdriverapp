@@ -9,7 +9,7 @@ plugins {
 android {
     namespace "com.AgniDriver.agnidriver2025"
     compileSdk flutter.compileSdkVersion
-    ndkVersion "27.0.12077973"   // 🔥 add this line
+    ndkVersion "28.2.13676358"   // 🔥 use local installed version
  
     compileOptions {
     sourceCompatibility JavaVersion.VERSION_17
@@ -30,7 +30,10 @@ kotlinOptions {
 }
     signingConfigs {
         debug {
-            storeFile file('debug.keystore') // Debug signing
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+            storeFile file(System.getProperty("user.home") + "/.android/debug.keystore")
+            storePassword "android"
         }
          release {
             storeFile file(rootProject.file("keystore.jks"))
