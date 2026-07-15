@@ -25,6 +25,9 @@ class RazorpayPaymentPage extends StatefulWidget {
 
 class _RazorpayPaymentPageState extends State<RazorpayPaymentPage> {
   late Razorpay _razorpay;
+  String? _razorpayKey;
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -36,12 +39,37 @@ class _RazorpayPaymentPageState extends State<RazorpayPaymentPage> {
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleError);
-    _openCheckout();
+    _fetchConfigAndOpenCheckout();
+  }
+
+  Future<void> _fetchConfigAndOpenCheckout() async {
+    try {
+      final response = await http.get(Uri.parse("${ApiConfig.legacyPath}/get_razorpay_config.php"));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['razorpay_key'] != null) {
+          setState(() {
+            _razorpayKey = data['razorpay_key'];
+            _isLoading = false;
+          });
+          _openCheckout();
+          return;
+        }
+      }
+      throw Exception("Invalid configuration response");
+    } catch (e) {
+      print("Error fetching Razorpay configuration: $e");
+      setState(() {
+        _errorMessage = "Failed to load payment configuration. Please try again.";
+        _isLoading = false;
+      });
+    }
   }
 
   void _openCheckout() {
+    if (_razorpayKey == null) return;
     var options = {
-      'key': 'rzp_live_q9eMvidQ7LrwVQ', // Replace with your actual key
+      'key': _razorpayKey, // Dynamically loaded key
       'amount': (widget.amount * 100).toInt(), //(1 * 100).toInt(),
       'name': 'Agni Car Rental',
       'description': widget.description,
@@ -118,7 +146,37 @@ class _RazorpayPaymentPageState extends State<RazorpayPaymentPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red, fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isLoading = true;
+                      _errorMessage = null;
+                    });
+                    _fetchConfigAndOpenCheckout();
+                  },
+                  child: const Text("Retry"),
+                )
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return const Scaffold(
       body: Center(child: CircularProgressIndicator()),
     );
   }

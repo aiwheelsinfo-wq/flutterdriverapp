@@ -247,7 +247,8 @@ class _SettlementsPageState extends State<SettlementsPage> {
     final txnRef = s["transaction_reference"];
     final tripStatus = s["trip_status"] ?? "";
     final bool isCancelled = tripStatus.toString().toLowerCase() == 'cancelled';
-
+    final tripType = s["trip_type"] ?? "";
+    final double vendorAmount = double.tryParse(s["vendor_amount"]?.toString() ?? "0") ?? 0.0;
     final statusColor = _getStatusColor(status);
 
     return Container(
@@ -341,13 +342,17 @@ class _SettlementsPageState extends State<SettlementsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Customer Advance",
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          Text(
+                            tripType.toString().toLowerCase() == 'round-trip'
+                                ? "Cash Collected"
+                                : "Customer Advance",
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "₹${advancePaid.toStringAsFixed(2)}",
+                            tripType.toString().toLowerCase() == 'round-trip'
+                                ? "₹${(vendorAmount - eligibleAmount).toStringAsFixed(2)}"
+                                : "₹${advancePaid.toStringAsFixed(2)}",
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -362,7 +367,11 @@ class _SettlementsPageState extends State<SettlementsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isCancelled ? "Vendor Compensation" : "Your 60% Share",
+                            isCancelled
+                                ? "Vendor Compensation"
+                                : (tripType.toString().toLowerCase() == 'round-trip'
+                                    ? "Due from Rentox"
+                                    : "Your 60% Share"),
                             style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           const SizedBox(height: 4),
@@ -379,6 +388,31 @@ class _SettlementsPageState extends State<SettlementsPage> {
                     ),
                   ],
                 ),
+                if (tripType.toString().toLowerCase() == 'round-trip') ...[
+                  const SizedBox(height: 12),
+                  const Divider(height: 16, thickness: 0.5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Total Vendor Earnings:",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: charcoal,
+                        ),
+                      ),
+                      Text(
+                        "₹${vendorAmount.toStringAsFixed(2)}",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 16),
 
                 // Dates & Details
