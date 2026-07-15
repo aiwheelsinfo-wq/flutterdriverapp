@@ -14,6 +14,11 @@ class SettlementsPage extends StatefulWidget {
 class _SettlementsPageState extends State<SettlementsPage> {
   bool isLoading = true;
   List<dynamic> settlements = [];
+  List<dynamic> filteredSettlements = [];
+  String searchQuery = "";
+  String selectedStatus = "All"; // "All", "Pending", "Paid"
+  double totalEarnings = 0.0;
+  double totalPending = 0.0;
   String? errorMessage;
 
   // Theme Colors consistent with owner_account.dart
@@ -26,6 +31,50 @@ class _SettlementsPageState extends State<SettlementsPage> {
   void initState() {
     super.initState();
     fetchSettlements();
+  }
+
+  void _calculateTotals() {
+    double earnings = 0.0;
+    double pending = 0.0;
+    for (var s in settlements) {
+      final double vendorAmt = double.tryParse(s["vendor_amount"]?.toString() ?? "0") ?? 0.0;
+      final double eligibleAmt = double.tryParse(s["eligible_amount"]?.toString() ?? "0") ?? 0.0;
+      final String status = (s["settlement_status"] ?? "Pending").toString().toLowerCase();
+
+      earnings += (vendorAmt > 0 ? vendorAmt : eligibleAmt);
+
+      if (status != 'paid') {
+        pending += eligibleAmt;
+      }
+    }
+    setState(() {
+      totalEarnings = earnings;
+      totalPending = pending;
+    });
+  }
+
+  void _filterSettlements() {
+    setState(() {
+      filteredSettlements = settlements.where((s) {
+        final bookingId = (s["booking_id"] ?? "").toString().toLowerCase();
+        final tripType = (s["trip_type"] ?? "").toString().toLowerCase();
+        final status = (s["settlement_status"] ?? "Pending").toString().toLowerCase();
+
+        // Search filter
+        final matchesSearch = bookingId.contains(searchQuery.toLowerCase()) ||
+            tripType.contains(searchQuery.toLowerCase());
+
+        // Status filter
+        bool matchesStatus = true;
+        if (selectedStatus == "Pending") {
+          matchesStatus = status != 'paid';
+        } else if (selectedStatus == "Paid") {
+          matchesStatus = status == 'paid';
+        }
+
+        return matchesSearch && matchesStatus;
+      }).toList();
+    });
   }
 
   Future<void> fetchSettlements() async {
@@ -49,6 +98,8 @@ class _SettlementsPageState extends State<SettlementsPage> {
               settlements = data["settlements"] ?? [];
               isLoading = false;
             });
+            _calculateTotals();
+            _filterSettlements();
           }
         } else {
           if (mounted) {
@@ -160,6 +211,204 @@ class _SettlementsPageState extends State<SettlementsPage> {
   }
 
   Widget _buildMainContent() {
+    return Column(
+      children: [
+        _buildStatsSummary(),
+        _buildSearchAndFilters(),
+        _buildInfoBanner(),
+        Expanded(
+          child: filteredSettlements.isEmpty
+              ? _buildNoResultsState()
+              : ListView.builder(
+                  itemCount: filteredSettlements.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemBuilder: (context, index) {
+                    final s = filteredSettlements[index];
+                    return _buildSettlementCard(s);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsSummary() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          // Total Earnings Card
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Total Earnings",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Icon(Icons.account_balance_wallet, color: Colors.green[600], size: 18),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "₹${totalEarnings.toStringAsFixed(0)}",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Total Pending Card
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Total Pending",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const Icon(Icons.hourglass_empty, color: primaryAmber, size: 18),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "₹${totalPending.toStringAsFixed(0)}",
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: charcoal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchAndFilters() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        children: [
+          // Search Field
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.withOpacity(0.2)),
+            ),
+            child: TextField(
+              onChanged: (val) {
+                searchQuery = val;
+                _filterSettlements();
+              },
+              decoration: const InputDecoration(
+                hintText: "Search by Booking ID or Trip Type...",
+                hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                prefixIcon: Icon(Icons.search, color: Colors.grey, size: 20),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Filter Tabs
+          Row(
+            children: [
+              _buildFilterChip("All"),
+              const SizedBox(width: 8),
+              _buildFilterChip("Pending"),
+              const SizedBox(width: 8),
+              _buildFilterChip("Paid"),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String status) {
+    final isSelected = selectedStatus == status;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedStatus = status;
+        });
+        _filterSettlements();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryAmber : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? primaryAmber : Colors.grey.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          status,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : charcoal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoResultsState() {
     if (settlements.isEmpty) {
       return Center(
         child: Column(
@@ -188,28 +437,29 @@ class _SettlementsPageState extends State<SettlementsPage> {
         ),
       );
     }
-
-    return Column(
-      children: [
-        _buildInfoBanner(),
-        Expanded(
-          child: ListView.builder(
-            itemCount: settlements.length,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemBuilder: (context, index) {
-              final s = settlements[index];
-              return _buildSettlementCard(s);
-            },
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 60, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            "No matching settlements found",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[600],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildInfoBanner() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: primaryAmber.withOpacity(0.1),
