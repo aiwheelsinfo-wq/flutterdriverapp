@@ -743,6 +743,108 @@ class _SettlementsPageState extends State<SettlementsPage> {
                     ],
                   ),
                 ],
+
+                const SizedBox(height: 8),
+                Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: const Text(
+                      "View Trip Route & Dates",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: primaryAmber,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    children: [
+                      const Divider(height: 16, thickness: 0.5),
+                      // Route Details (From -> To)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Column(
+                            children: [
+                              Icon(Icons.radio_button_checked, color: primaryAmber, size: 16),
+                              SizedBox(height: 16, child: VerticalDivider(color: Colors.grey, width: 1)),
+                              Icon(Icons.location_on, color: Colors.deepOrange, size: 16),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  s["from_address"] != null && s["from_address"].toString().isNotEmpty
+                                      ? s["from_address"].toString()
+                                      : "Not Available",
+                                  style: const TextStyle(fontSize: 13, color: charcoal),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  s["to_address"] != null && s["to_address"].toString().isNotEmpty
+                                      ? s["to_address"].toString()
+                                      : "Local Trip",
+                                  style: const TextStyle(fontSize: 13, color: charcoal, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Trip Dates (Start Date -> Return Date)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(Icons.date_range, size: 16, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text("Start Date", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      s["starting_date"] != null && s["starting_date"].toString().isNotEmpty
+                                          ? s["starting_date"].toString()
+                                          : "N/A",
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: charcoal),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(Icons.event_available, size: 16, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text("Return Date", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      s["return_date"] != null && s["return_date"].toString().isNotEmpty && s["return_date"].toString() != "0000-00-00"
+                                          ? s["return_date"].toString()
+                                          : "N/A / One-Way",
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: charcoal),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
