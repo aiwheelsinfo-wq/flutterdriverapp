@@ -25,8 +25,8 @@ kotlinOptions {
     applicationId = "com.AgniDriver.agnidriver2025"
     minSdkVersion flutter.minSdkVersion  // Set manually if needed
     targetSdkVersion 35  // Set manually if needed
-    versionCode 24  // Bumped for FCM fix - correct Firebase project
-    versionName "1.0.1"  // FCM notification fix release
+    versionCode 27  // Bumped for Play Store rejection crash fix
+    versionName "1.1.1"  // Release with startup crash fixes
 }
     signingConfigs {
         debug {

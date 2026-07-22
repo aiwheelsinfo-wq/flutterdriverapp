@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -8,8 +9,14 @@ import '../trip_accepting.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await NotificationService.instance.setupFlutterNotifications();
-  await NotificationService.instance.showNotification(message);
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp();
+    await NotificationService.instance.setupFlutterNotifications();
+    await NotificationService.instance.showNotification(message);
+  } catch (e) {
+    debugPrint("⚠️ _firebaseMessagingBackgroundHandler error: $e");
+  }
 }
 
 class NotificationService {
@@ -22,14 +29,16 @@ class NotificationService {
   bool _isFlutterLocalNotificationsInitialized = false;
 
   Future<void> initialize() async {
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    try {
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      await _requestPermission();
+      await _setupMessageHandlers();
 
-    await _requestPermission();
-
-    await _setupMessageHandlers();
-
-    final token = await _messaging.getToken();
-    print('FCM Token: $token');
+      final token = await _messaging.getToken();
+      print('FCM Token: $token');
+    } catch (e) {
+      debugPrint("⚠️ NotificationService initialize error: $e");
+    }
   }
 
   Future<void> _requestPermission() async {

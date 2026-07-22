@@ -31,29 +31,47 @@ const Color kDarkText = Color(0xFF3E2723); // Fixed the typo here
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
 
-  // Initialize notifications
-  await NotificationService.instance.initialize();
-  await NotificationService.instance.setupFlutterNotifications();
-
-  // 🔥 1. Request permission (MANDATORY)
-  await FirebaseMessaging.instance.requestPermission();
-
-  // Request location permission to avoid SecurityException for Foreground Service
-  LocationPermission permission = await Geolocator.checkPermission();
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
+  // 1. Safe Firebase Init
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("⚠️ Firebase.initializeApp error: $e");
   }
 
-  if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-    await _setupTrackingService();
-    final service = FlutterBackgroundService();
-    if (!await service.isRunning()) {
-      service.startService();
+  // 2. Safe Notification Init
+  try {
+    await NotificationService.instance.initialize();
+    await NotificationService.instance.setupFlutterNotifications();
+  } catch (e) {
+    debugPrint("⚠️ NotificationService init error: $e");
+  }
+
+  // 3. Safe Firebase Messaging Permission
+  try {
+    await FirebaseMessaging.instance.requestPermission();
+  } catch (e) {
+    debugPrint("⚠️ FirebaseMessaging requestPermission error: $e");
+  }
+
+  // 4. Safe Location & Service Check
+  try {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
     }
-  } else {
-    debugPrint("⚠️ Location permission not granted. Background service not started.");
+
+    if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+      await _setupTrackingService();
+      final service = FlutterBackgroundService();
+      if (!await service.isRunning()) {
+        await service.startService();
+      }
+    } else {
+      debugPrint("⚠️ Location permission not granted. Background service not started.");
+    }
+  } catch (e) {
+    debugPrint("⚠️ Location/Background service error in main: $e");
   }
 
   runApp(const RentoxApp());
@@ -61,38 +79,42 @@ void main() async {
 
 /// ✅ Background Service Logic
 Future<void> _setupTrackingService() async {
-  final service = FlutterBackgroundService();
+  try {
+    final service = FlutterBackgroundService();
 
-  const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'driver_tracking',
-    'Location Service',
-    importance: Importance.low,
-  );
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'driver_tracking',
+      'Location Service',
+      importance: Importance.low,
+    );
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
 
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
 
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      onStart: onStart,
-      autoStart: false,
-      isForegroundMode: true,
-      notificationChannelId: 'driver_tracking',
-      initialNotificationTitle: 'Rentox Tracking',
-      initialNotificationContent: 'Tracking driver location...',
-      foregroundServiceNotificationId: 888,
-    ),
-    iosConfiguration: IosConfiguration(
-      autoStart: false,
-      onForeground: onStart,
-      onBackground: onIosBackground,
-    ),
-  );
+    await service.configure(
+      androidConfiguration: AndroidConfiguration(
+        onStart: onStart,
+        autoStart: false,
+        isForegroundMode: true,
+        notificationChannelId: 'driver_tracking',
+        initialNotificationTitle: 'Rentox Tracking',
+        initialNotificationContent: 'Tracking driver location...',
+        foregroundServiceNotificationId: 888,
+      ),
+      iosConfiguration: IosConfiguration(
+        autoStart: false,
+        onForeground: onStart,
+        onBackground: onIosBackground,
+      ),
+    );
+  } catch (e) {
+    debugPrint("⚠️ _setupTrackingService error: $e");
+  }
 }
 
 @pragma('vm:entry-point')
