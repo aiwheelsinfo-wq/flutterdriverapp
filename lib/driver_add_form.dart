@@ -488,9 +488,14 @@ class _DriverFormPageState extends State<DriverFormPage> {
         Uri.parse(ApiConfig.registerDriver),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(data),
-      );
+      ).timeout(const Duration(seconds: 10));
 
-      final respData = jsonDecode(resp.body);
+      Map<String, dynamic> respData = {};
+      try {
+        if (resp.body.isNotEmpty) {
+          respData = jsonDecode(resp.body);
+        }
+      } catch (_) {}
 
       if (resp.statusCode == 200 && respData['status'] == 'success') {
         setState(() {
@@ -504,11 +509,11 @@ class _DriverFormPageState extends State<DriverFormPage> {
       } else {
         final errMsg = respData['message'] ?? 'Registration failed. Please try again.';
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Error: $errMsg"), backgroundColor: Colors.red));
+            .showSnackBar(SnackBar(content: Text(errMsg), backgroundColor: Colors.red));
       }
     } catch (e) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Error: $e")));
+          .showSnackBar(SnackBar(content: Text("Error: Unable to connect to server. Please try again."), backgroundColor: Colors.red));
     }
   }
 
