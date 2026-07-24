@@ -94,6 +94,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
       'date_of_birth': TextEditingController(),
       'pin_code': TextEditingController(),
       'license_no': TextEditingController(),
+      'license_doi': TextEditingController(),
       'license_doe': TextEditingController(),
       'license_type': TextEditingController(),
       'adhaar_card_no': TextEditingController(),
@@ -419,6 +420,15 @@ class _DriverFormPageState extends State<DriverFormPage> {
           if (name.isNotEmpty) {
             _controllers['full_name']!.text = name;
           }
+          final issueDate = details['issue_date'] ?? details['doi'] ?? "";
+          if (issueDate.isNotEmpty) {
+            try {
+              final parsedIssue = DateTime.parse(issueDate);
+              _controllers['license_doi']!.text = DateFormat('dd-MM-yyyy').format(parsedIssue);
+            } catch (e) {
+              _controllers['license_doi']!.text = issueDate;
+            }
+          }
           if (expiry.isNotEmpty) {
             try {
               final parsedDate = DateTime.parse(expiry);
@@ -475,6 +485,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
       'date_of_birth': _formatToBackend(_controllers['date_of_birth']!.text),
       'pin_code': _controllers['pin_code']!.text,
       'license_no': _controllers['license_no']!.text,
+      'license_doi': _formatToBackend(_controllers['license_doi']!.text),
       'license_doe': _formatToBackend(_controllers['license_doe']!.text),
       'license_type': _controllers['license_type']!.text,
       'adhaar_card_no': _controllers['adhaar_card_no']!.text,
@@ -1017,6 +1028,8 @@ class _DriverFormPageState extends State<DriverFormPage> {
         ),
         _buildVerifyDlButton(),
         _buildLicenseDropdown(),
+        _buildField(
+            label: "License Issue Date", apiKey: "license_doi", isDate: true, icon: Icons.calendar_month),
         _buildField(
             label: "License Expiry Date", apiKey: "license_doe", isDate: true),
         const SizedBox(height: 20),
