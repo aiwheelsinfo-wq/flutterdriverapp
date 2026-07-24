@@ -776,11 +776,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
                     keyboard: TextInputType.number)),
           ],
         ),
-        _buildField(
-            label: "Date of Birth",
-            apiKey: "date_of_birth",
-            isDate: true,
-            icon: Icons.cake),
         _buildSectionTitle("Identification", Icons.badge_outlined),
         _buildField(
             label: "Adhaar Number",
@@ -795,8 +790,15 @@ class _DriverFormPageState extends State<DriverFormPage> {
             icon: Icons.credit_card),
         _buildSectionTitle("License Details", Icons.drive_eta_outlined),
         _buildField(
+            label: "Date of Birth (DOB)",
+            apiKey: "date_of_birth",
+            isDate: true,
+            hint: "SELECT DOB FIRST",
+            icon: Icons.cake),
+        _buildField(
             label: "License Number",
             apiKey: "license_no",
+            hint: "E.G. KL7320220004599",
             icon: Icons.assignment_ind),
         _buildVerifyDlButton(),
         _buildLicenseDropdown(),
