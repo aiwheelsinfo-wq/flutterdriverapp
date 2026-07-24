@@ -31,6 +31,7 @@ class _MyWidgetState extends State<checAbdRoot> {
 
   Future<void> fetchDriverDetails() async {
     String? storedNumber = await secureStorage.read(key: "phone_number");
+    String? userType = await secureStorage.read(key: "userType");
 
     try {
       final response = await http.get(
@@ -49,10 +50,20 @@ class _MyWidgetState extends State<checAbdRoot> {
 
             // Navigate based on the value of 'status'
             if (status == "filled") {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => SubDriverPage()),
-              );
+              // If user is a Vendor, go to booking/home page instead of driver page
+              if (userType == "Vender") {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          BookingListPage(phoneNumber: storedNumber ?? '')),
+                );
+              } else {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => SubDriverPage()),
+                );
+              }
             } else if (status == "not filled") {
               Navigator.pushReplacement(
                 context,
