@@ -439,6 +439,34 @@ class _DriverFormPageState extends State<DriverFormPage> {
           }
           if (address.isNotEmpty) {
             _controllers['driver_address']!.text = address;
+
+            // 1. Auto-populate Pincode (direct API field or 6-digit regex match from address)
+            final directPin = (details['pincode'] ?? details['pin_code'] ?? details['zip'] ?? "").toString().trim();
+            if (directPin.isNotEmpty && RegExp(r'^\d{6}$').hasMatch(directPin)) {
+              _controllers['pin_code']!.text = directPin;
+            } else {
+              final pinMatch = RegExp(r'\b\d{6}\b').firstMatch(address);
+              if (pinMatch != null) {
+                _controllers['pin_code']!.text = pinMatch.group(0)!;
+              }
+            }
+
+            // 2. Auto-populate City (direct API field or parsed from comma-separated address)
+            final directCity = (details['city'] ?? details['district'] ?? "").toString().trim();
+            if (directCity.isNotEmpty) {
+              _controllers['driver_city']!.text = directCity;
+            } else {
+              final parts = address.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+              final stateAbbrs = {'KL', 'KA', 'MH', 'TN', 'DL', 'GJ', 'RJ', 'UP', 'MP', 'HR', 'PB', 'AP', 'TS', 'INDIA', 'IN'};
+              for (int i = parts.length - 1; i >= 0; i--) {
+                final part = parts[i];
+                final upper = part.toUpperCase();
+                if (!RegExp(r'^\d{6}$').hasMatch(part) && part.length >= 3 && !stateAbbrs.contains(upper)) {
+                  _controllers['driver_city']!.text = part;
+                  break;
+                }
+              }
+            }
           }
           _controllers['license_type']!.text = indianLicenseTypes.first;
         });
