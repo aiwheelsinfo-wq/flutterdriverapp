@@ -873,11 +873,31 @@ class _DriverFormPageState extends State<DriverFormPage> {
             maxLength: 10,
             icon: Icons.credit_card),
         _buildSectionTitle("License Details", Icons.drive_eta_outlined),
+        Container(
+          margin: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: primaryAmber.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: primaryAmber.withOpacity(0.4)),
+          ),
+          child: Row(
+            children: const [
+              Icon(Icons.info_outline, color: accentAmber, size: 16),
+              SizedBox(width: 8),
+              Text(
+                "STEP 1: SELECT DOB FIRST BEFORE GOVT VERIFICATION",
+                style: TextStyle(
+                    color: charcoal, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
         _buildField(
             label: "Date of Birth (DOB)",
             apiKey: "date_of_birth",
             isDate: true,
-            hint: "SELECT DOB FIRST",
+            hint: "SELECT DOB FIRST (DD-MM-YYYY)",
             icon: Icons.cake),
         // --- License Number with real-time duplicate check ---
         Padding(
