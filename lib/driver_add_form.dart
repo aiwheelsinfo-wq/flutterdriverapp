@@ -385,7 +385,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
           dlVerificationStatusMessage = "✅ DL VERIFIED: $name (Valid till: $expiry)";
           dlVerificationStatusColor = Colors.green;
 
-          if (name.isNotEmpty && _controllers['full_name']!.text.isEmpty) {
+          if (name.isNotEmpty) {
             _controllers['full_name']!.text = name;
           }
           if (expiry.isNotEmpty) {
