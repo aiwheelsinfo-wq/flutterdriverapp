@@ -33,7 +33,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
   late Map<String, TextEditingController> _controllers;
 
   String? storedNumber;
-  String? agencyName;
   String? driverCode;
   bool driverFrom = false;
   bool newDriverForm = false;
@@ -119,23 +118,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
 
   Future<void> fetchDriverStatus() async {
     storedNumber = await secureStorage.read(key: "phone_number");
-    agencyName = await secureStorage.read(key: "agency_name");
-    // Fallback: fetch agency_name from vendor API if not cached
-    if (agencyName == null || agencyName!.isEmpty) {
-      try {
-        final res = await http.get(Uri.parse(
-            '${ApiConfig.registerDriver}?phone_number=$storedNumber'));
-        if (res.statusCode == 200) {
-          final d = jsonDecode(res.body);
-          final vendors = d['vendorsdata'] ?? [];
-          if (vendors.isNotEmpty) {
-            agencyName = vendors[0]['agency_name'] ?? '';
-            await secureStorage.write(key: "agency_name", value: agencyName!);
-          }
-        }
-      } catch (_) {}
-
-    }
     try {
       final response = await http.get(Uri.parse(
           '${ApiConfig.registerDriver}?phone_number=$storedNumber'));
@@ -498,14 +480,14 @@ class _DriverFormPageState extends State<DriverFormPage> {
       'adhaar_card_no': _controllers['adhaar_card_no']!.text,
       'pan_card_no': _controllers['pan_card_no']!.text,
       'status': status,
-      'agency_name': agencyName ?? '',
       'vendor_number': storedNumber,
     };
 
     try {
       final resp = await http.post(
         Uri.parse(ApiConfig.registerDriver),
-        body: data.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(data),
       );
 
       final respData = jsonDecode(resp.body);
