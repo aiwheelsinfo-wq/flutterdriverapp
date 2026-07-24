@@ -54,6 +54,12 @@ class _DriverFormPageState extends State<DriverFormPage> {
   Color dlVerificationStatusColor = Colors.grey;
   bool isDlVerifiedSuccess = false;
 
+  // Real-time DL duplicate check
+  bool isDlDuplicate = false;
+  bool isDlUnique = false;
+  bool isCheckingDl = false;
+  String? dlDuplicateMessage;
+
   // Professional Amber Palette
   static const Color primaryAmber = Color(0xFFFFB300);
   static const Color accentAmber = Color(0xFFFF8F00);
@@ -501,6 +507,49 @@ class _DriverFormPageState extends State<DriverFormPage> {
     }
   }
 
+  // ------------------- REAL-TIME DL DUPLICATE CHECK -------------------
+
+  Future<void> _checkDlExists(String value) async {
+    final raw = value.replaceAll(RegExp(r'[\s\-]'), '').toUpperCase().trim();
+    if (raw.length < 15) {
+      if (isDlDuplicate || isDlUnique) {
+        setState(() {
+          isDlDuplicate = false;
+          isDlUnique = false;
+          dlDuplicateMessage = null;
+        });
+      }
+      return;
+    }
+    setState(() {
+      isCheckingDl = true;
+      isDlDuplicate = false;
+      isDlUnique = false;
+      dlDuplicateMessage = null;
+    });
+    try {
+      final resp = await http.get(
+        Uri.parse(ApiConfig.checkDlExists + '?license_no=' + Uri.encodeComponent(raw)),
+      ).timeout(const Duration(seconds: 5));
+      if (!mounted) return;
+      final data = jsonDecode(resp.body);
+      setState(() {
+        isCheckingDl = false;
+        if (data['exists'] == true) {
+          isDlDuplicate = true;
+          isDlUnique = false;
+          dlDuplicateMessage = 'This driving license number already exists. Please enter a different license number.';
+        } else {
+          isDlDuplicate = false;
+          isDlUnique = true;
+          dlDuplicateMessage = null;
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => isCheckingDl = false);
+    }
+  }
+
   // ------------------- UI COMPONENTS -------------------
 
   Widget _buildField({
@@ -820,11 +869,122 @@ class _DriverFormPageState extends State<DriverFormPage> {
             isDate: true,
             hint: "SELECT DOB FIRST",
             icon: Icons.cake),
-        _buildField(
-            label: "License Number",
-            apiKey: "license_no",
-            hint: "E.G. KL7320220004599",
-            icon: Icons.assignment_ind),
+        // --- License Number with real-time duplicate check ---
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _controllers['license_no'],
+                onChanged: (val) {
+                  if (val.length >= 15) _checkDlExists(val);
+                  if (val.length < 15 && (isDlDuplicate || isDlUnique)) {
+                    setState(() {
+                      isDlDuplicate = false;
+                      isDlUnique = false;
+                      dlDuplicateMessage = null;
+                    });
+                  }
+                },
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: [UpperCaseTextFormatter()],
+                keyboardType: TextInputType.text,
+                decoration: InputDecoration(
+                  labelText: 'LICENSE NUMBER',
+                  hintText: 'E.G. KL7320220004599',
+                  counterText: '',
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: Icon(
+                    Icons.assignment_ind,
+                    color: isDlDuplicate
+                        ? Colors.redAccent
+                        : isDlUnique
+                            ? Colors.green
+                            : primaryAmber,
+                    size: 20,
+                  ),
+                  suffixIcon: isCheckingDl
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : isDlDuplicate
+                          ? const Icon(Icons.error, color: Colors.redAccent)
+                          : isDlUnique
+                              ? const Icon(Icons.check_circle, color: Colors.green)
+                              : null,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: isDlDuplicate
+                              ? Colors.redAccent
+                              : isDlUnique
+                                  ? Colors.green
+                                  : Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: isDlDuplicate
+                              ? Colors.redAccent
+                              : isDlUnique
+                                  ? Colors.green
+                                  : Colors.grey.shade300,
+                          width: (isDlDuplicate || isDlUnique) ? 2 : 1)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: isDlDuplicate
+                              ? Colors.redAccent
+                              : isDlUnique
+                                  ? Colors.green
+                                  : primaryAmber,
+                          width: 2)),
+                ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'REQUIRED';
+                  if (isDlDuplicate) return 'License number already exists';
+                  return null;
+                },
+              ),
+              if (isDlDuplicate && dlDuplicateMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          dlDuplicateMessage!,
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (isDlUnique)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline, color: Colors.green, size: 16),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'License number is unique ✓',
+                        style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
         _buildVerifyDlButton(),
         _buildLicenseDropdown(),
         _buildField(
@@ -958,20 +1118,41 @@ class _DriverFormPageState extends State<DriverFormPage> {
   }
 
   Widget _buildSubmitButton() {
+    final bool canSubmit = !isDlDuplicate && !isCheckingDl;
     return SizedBox(
       width: double.infinity,
       height: 55,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-            backgroundColor: charcoal,
+            backgroundColor: canSubmit ? charcoal : Colors.grey.shade400,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15))),
-        onPressed: () => _submitForm(driverCodeField ? 'join' : 'filled'),
-        child: const Text("REGISTER & UPDATE DRIVER",
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1)),
+        onPressed: canSubmit ? () => _submitForm(driverCodeField ? 'join' : 'filled') : null,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isCheckingDl)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            else
+              const Icon(Icons.app_registration, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              isCheckingDl
+                  ? "CHECKING LICENSE..."
+                  : isDlDuplicate
+                      ? "DUPLICATE DL — CANNOT REGISTER"
+                      : "REGISTER & UPDATE DRIVER",
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1),
+            ),
+          ],
+        ),
       ),
     );
   }

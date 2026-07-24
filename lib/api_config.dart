@@ -42,6 +42,7 @@ class ApiConfig {
   static const String statusChangeNotJoin = "$driverPath/status_change_not_join.php";
   static const String statusChangeNotFilled = "$driverPath/status_change_notFilled.php";
   static const String submitCarDriverSelectionPage = "$driverPath/submit_car_driver_selction_page.php";
+  static const String checkDlExists = "$driverPath/check_dl_exists.php";
   static const String tripLiveMappingBackend = "$driverPath/trip_live_mapping_backend.php";
   static const String updateEndTripDetails = "$driverPath/update_endTrip_Details.php";
   static const String updateFcmToken = "$driverPath/update_fcm_token.php";
