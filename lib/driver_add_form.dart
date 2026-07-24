@@ -505,8 +505,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
     try {
       final resp = await http.post(
         Uri.parse(ApiConfig.registerDriver),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(data),
+        body: data.map((k, v) => MapEntry(k, v?.toString() ?? '')),
       );
 
       final respData = jsonDecode(resp.body);
