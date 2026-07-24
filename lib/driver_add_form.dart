@@ -428,33 +428,10 @@ class _DriverFormPageState extends State<DriverFormPage> {
   }
 
   Future<void> _submitForm(String status) async {
-    if (storedNumber == null || storedNumber!.isEmpty) {
-      storedNumber = await secureStorage.read(key: "phone_number");
-    }
-
-    if (!_formKey.currentState!.validate()) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("⚠️ Please fill all required fields highlighted in red"),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      return;
-    }
-
+    if (!_formKey.currentState!.validate()) return;
     if (!_isAgree) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("⚠️ Please check the terms declaration checkbox first"),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Please agree to terms")));
       return;
     }
 
@@ -478,51 +455,12 @@ class _DriverFormPageState extends State<DriverFormPage> {
     try {
       final resp = await http.post(
         Uri.parse(ApiConfig.registerDriver),
+
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(data),
       );
 
       if (resp.statusCode == 200) {
-        final resData = jsonDecode(resp.body);
-        if (resData['status'] == 'duplicate') {
-          if (mounted) {
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                title: const Row(
-                  children: [
-                    Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
-                    SizedBox(width: 8),
-                    Text("Duplicate Driver", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  ],
-                ),
-                content: Text(
-                  resData['message'] ?? "A driver with this phone number or driving license is already registered!",
-                  style: const TextStyle(fontSize: 14),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("OK", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
-                  ),
-                ],
-              ),
-            );
-          }
-          return;
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("✅ Driver Registered Successfully!"),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-
         setState(() {
           driverForm = false;
           addDriverSuccess = true;
@@ -531,27 +469,10 @@ class _DriverFormPageState extends State<DriverFormPage> {
         });
         _scrollController.animateTo(0,
             duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Server Error: ${resp.statusCode}"),
-              backgroundColor: Colors.redAccent,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: $e"),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
