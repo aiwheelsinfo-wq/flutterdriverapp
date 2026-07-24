@@ -43,8 +43,9 @@ class _DriverOwnerSelectionPageState extends State<DriverOwnerSelectionPage> {
       var data = jsonDecode(response.body);
 
       if (data["success"] == true) {
+        final statusVal = (data["current_status"] ?? data["new_status"] ?? "").toString().toLowerCase();
         if (type == "Vender") {
-          if (data["current_status"] == "active") {
+          if (statusVal == "active" || statusVal == "filled" || statusVal == "not car" || statusVal == "notified") {
             _navigateTo(BookingListPage(phoneNumber: storedNumber ?? ""));
           } else {
             _navigateTo(const OwnerRegPage());
