@@ -845,48 +845,11 @@ class _DriverFormPageState extends State<DriverFormPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle("Personal Details", Icons.person_outline),
-        _buildField(
-            label: "Full Name",
-            apiKey: "full_name",
-            hint: "As per Adhaar",
-            icon: Icons.person),
-        _buildField(
-            label: "Email Address",
-            apiKey: "email",
-            hint: "example@mail.com",
-            icon: Icons.email,
-            keyboard: TextInputType.emailAddress),
-        _buildField(
-            label: "Address", apiKey: "driver_address", icon: Icons.map),
-        Row(
-          children: [
-            Expanded(child: _buildField(label: "City", apiKey: "driver_city")),
-            const SizedBox(width: 10),
-            Expanded(
-                child: _buildField(
-                    label: "Pin Code",
-                    apiKey: "pin_code",
-                    maxLength: 6,
-                    keyboard: TextInputType.number)),
-          ],
-        ),
-        _buildSectionTitle("Identification", Icons.badge_outlined),
-        _buildField(
-            label: "Adhaar Number",
-            apiKey: "adhaar_card_no",
-            maxLength: 12,
-            keyboard: TextInputType.number,
-            icon: Icons.fingerprint),
-        _buildField(
-            label: "PAN Card Number",
-            apiKey: "pan_card_no",
-            maxLength: 10,
-            icon: Icons.credit_card),
+        // ---------------- 1. LICENSE DETAILS (FIRST) ----------------
         _buildSectionTitle("License Details", Icons.drive_eta_outlined),
         Container(
-          margin: const EdgeInsets.only(bottom: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: primaryAmber.withOpacity(0.12),
             borderRadius: BorderRadius.circular(8),
@@ -896,21 +859,18 @@ class _DriverFormPageState extends State<DriverFormPage> {
             children: const [
               Icon(Icons.info_outline, color: accentAmber, size: 16),
               SizedBox(width: 8),
-              Text(
-                "STEP 1: SELECT DOB FIRST BEFORE GOVT VERIFICATION",
-                style: TextStyle(
-                    color: charcoal, fontSize: 11, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  "STEP 1: ENTER LICENSE & SELECT DOB FIRST TO VERIFY",
+                  style: TextStyle(
+                      color: charcoal, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
         ),
-        _buildField(
-            label: "Date of Birth (DOB)",
-            apiKey: "date_of_birth",
-            isDate: true,
-            hint: "SELECT DOB FIRST (DD-MM-YYYY)",
-            icon: Icons.cake),
-        // --- License Number with real-time duplicate check ---
+
+        // 1a. Driving License Number
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
@@ -1026,12 +986,71 @@ class _DriverFormPageState extends State<DriverFormPage> {
             ],
           ),
         ),
+
+        // 1b. Date of Birth (DOB)
+        _buildField(
+            label: "Date of Birth (DOB)",
+            apiKey: "date_of_birth",
+            isDate: true,
+            hint: "SELECT DOB FIRST (DD-MM-YYYY)",
+            icon: Icons.cake),
+
+        // 1c. Verify License Button
         _buildVerifyDlButton(),
+
+        // 1d. Category, Issue Date & Expiry Date
         _buildLicenseDropdown(),
         _buildField(
             label: "License Issue Date", apiKey: "license_doi", isDate: true, icon: Icons.calendar_month),
         _buildField(
             label: "License Expiry Date", apiKey: "license_doe", isDate: true),
+
+        const SizedBox(height: 20),
+
+        // ---------------- 2. PERSONAL DETAILS ----------------
+        _buildSectionTitle("Personal Details", Icons.person_outline),
+        _buildField(
+            label: "Full Name",
+            apiKey: "full_name",
+            hint: "As per Adhaar / Govt DL",
+            icon: Icons.person),
+        _buildField(
+            label: "Email Address",
+            apiKey: "email",
+            hint: "example@mail.com",
+            icon: Icons.email,
+            keyboard: TextInputType.emailAddress),
+        _buildField(
+            label: "Address", apiKey: "driver_address", icon: Icons.map),
+        Row(
+          children: [
+            Expanded(child: _buildField(label: "City", apiKey: "driver_city")),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _buildField(
+                    label: "Pin Code",
+                    apiKey: "pin_code",
+                    maxLength: 6,
+                    keyboard: TextInputType.number)),
+          ],
+        ),
+
+        const SizedBox(height: 10),
+
+        // ---------------- 3. IDENTIFICATION ----------------
+        _buildSectionTitle("Identification", Icons.badge_outlined),
+        _buildField(
+            label: "Adhaar Number",
+            apiKey: "adhaar_card_no",
+            maxLength: 12,
+            keyboard: TextInputType.number,
+            icon: Icons.fingerprint),
+        _buildField(
+            label: "PAN Card Number",
+            apiKey: "pan_card_no",
+            maxLength: 10,
+            icon: Icons.credit_card),
+
         const SizedBox(height: 20),
         _buildAgreementSection(),
         const SizedBox(height: 30),
