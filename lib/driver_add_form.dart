@@ -267,6 +267,19 @@ class _DriverFormPageState extends State<DriverFormPage> {
 
   Future<void> statusChangeNotFill() async {
     storedNumber = await secureStorage.read(key: "phone_number");
+    String? userType = await secureStorage.read(key: "userType");
+
+    if (userType == "Vender" || userType == "Vendor") {
+      if (storedNumber != null && storedNumber!.isNotEmpty) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => BookingListPage(phoneNumber: storedNumber!)),
+          (route) => false,
+        );
+        return;
+      }
+    }
+
     try {
       var response = await http.post(
         Uri.parse(ApiConfig.statusChangeFilled),
@@ -276,9 +289,20 @@ class _DriverFormPageState extends State<DriverFormPage> {
       if (jsonDecode(response.body)["success"] == true) {
         Navigator.pushReplacement(
             context, MaterialPageRoute(builder: (_) => const checAbdRoot()));
+      } else {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => BookingListPage(phoneNumber: storedNumber ?? '')),
+          (route) => false,
+        );
       }
     } catch (e) {
       debugPrint("Status Change Error: $e");
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => BookingListPage(phoneNumber: storedNumber ?? '')),
+        (route) => false,
+      );
     }
   }
 

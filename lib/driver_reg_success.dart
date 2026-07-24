@@ -55,14 +55,13 @@ class _SubmitSuccessPageState extends State<SubmitSuccessPage> {
                     String? storedNumber =
                         await secureStorage.read(key: "phone_number");
 
-                    // After launching WhatsApp, clear the navigation history and navigate to a new screen
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
                           builder: (context) =>
-                              checAbdRoot()), // Your new screen
+                              BookingListPage(phoneNumber: storedNumber ?? '')),
                       (Route<dynamic> route) =>
-                          false, // Remove all previous routes
+                          false,
                     );
                   }
                 },
