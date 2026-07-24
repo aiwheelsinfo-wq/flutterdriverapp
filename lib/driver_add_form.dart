@@ -416,7 +416,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
           dlVerificationStatusMessage = "✅ DL VERIFIED: $name (Valid till: $expiry)";
           dlVerificationStatusColor = Colors.green;
 
-          if (name.isNotEmpty && _controllers['full_name']!.text.isEmpty) {
+          if (name.isNotEmpty) {
             _controllers['full_name']!.text = name;
           }
           if (expiry.isNotEmpty) {
@@ -427,7 +427,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
               _controllers['license_doe']!.text = expiry;
             }
           }
-          if (address.isNotEmpty && _controllers['driver_address']!.text.isEmpty) {
+          if (address.isNotEmpty) {
             _controllers['driver_address']!.text = address;
           }
           _controllers['license_type']!.text = indianLicenseTypes.first;
