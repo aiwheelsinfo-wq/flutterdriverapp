@@ -461,6 +461,36 @@ class _DriverFormPageState extends State<DriverFormPage> {
       );
 
       if (resp.statusCode == 200) {
+        final resData = jsonDecode(resp.body);
+        if (resData['status'] == 'duplicate') {
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+                    SizedBox(width: 8),
+                    Text("Duplicate Driver", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  ],
+                ),
+                content: Text(
+                  resData['message'] ?? "A driver with this phone number or driving license is already registered!",
+                  style: const TextStyle(fontSize: 14),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("OK", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                  ),
+                ],
+              ),
+            );
+          }
+          return;
+        }
+
         setState(() {
           driverForm = false;
           addDriverSuccess = true;
