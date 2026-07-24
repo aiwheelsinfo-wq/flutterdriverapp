@@ -48,6 +48,11 @@ class _DriverFormPageState extends State<DriverFormPage> {
   String? searchStatusMessage;
   Color searchStatusColor = Colors.grey;
 
+  bool isVerifyingDl = false;
+  String? dlVerificationStatusMessage;
+  Color dlVerificationStatusColor = Colors.grey;
+  bool isDlVerifiedSuccess = false;
+
   // Professional Amber Palette
   static const Color primaryAmber = Color(0xFFFFB300);
   static const Color accentAmber = Color(0xFFFF8F00);
@@ -320,6 +325,105 @@ class _DriverFormPageState extends State<DriverFormPage> {
       return '${parts[2]}-${parts[1]}-${parts[0]}';
     } catch (e) {
       return date;
+    }
+  }
+
+  Future<void> _verifyDrivingLicense() async {
+    final rawDl = _controllers['license_no']!.text.replaceAll(RegExp(r'[\s\-]'), '').toUpperCase().trim();
+    final dob = _controllers['date_of_birth']!.text.trim();
+
+    if (rawDl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter Driving License Number")),
+      );
+      return;
+    }
+
+    // 1. Client Format Regex Check (FREE)
+    final dlRegex = RegExp(r'^[A-Z]{2}[0-9]{2}[0-9]{11}$');
+    if (!dlRegex.hasMatch(rawDl)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Invalid DL format. Enter valid 15-character DL (e.g. KL7320220004599)")),
+      );
+      return;
+    }
+
+    if (dob.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select Date of Birth before verifying DL")),
+      );
+      return;
+    }
+
+    setState(() {
+      isVerifyingDl = true;
+      dlVerificationStatusMessage = "Verifying DL via Government API...";
+      dlVerificationStatusColor = Colors.blue;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.verifyDl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'license_no': rawDl,
+          'date_of_birth': _formatToBackend(dob),
+        }),
+      ).timeout(const Duration(seconds: 12));
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final details = data['data'] ?? {};
+        final name = details['name'] ?? details['holder_name'] ?? "";
+        final expiry = details['expiry_date'] ?? details['doe'] ?? "";
+        final address = details['permanent_address'] ?? details['address'] ?? "";
+
+        setState(() {
+          isVerifyingDl = false;
+          isDlVerifiedSuccess = true;
+          dlVerificationStatusMessage = "✅ DL VERIFIED: $name (Valid till: $expiry)";
+          dlVerificationStatusColor = Colors.green;
+
+          if (name.isNotEmpty && _controllers['full_name']!.text.isEmpty) {
+            _controllers['full_name']!.text = name;
+          }
+          if (expiry.isNotEmpty) {
+            try {
+              final parsedDate = DateTime.parse(expiry);
+              _controllers['license_doe']!.text = DateFormat('dd-MM-yyyy').format(parsedDate);
+            } catch (e) {
+              _controllers['license_doe']!.text = expiry;
+            }
+          }
+          if (address.isNotEmpty && _controllers['driver_address']!.text.isEmpty) {
+            _controllers['driver_address']!.text = address;
+          }
+          _controllers['license_type']!.text = indianLicenseTypes.first;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("DL Verified! Holder: $name"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        final errorMsg = data['message'] ?? "DL Verification failed or record not found";
+        setState(() {
+          isVerifyingDl = false;
+          isDlVerifiedSuccess = false;
+          dlVerificationStatusMessage = "❌ $errorMsg";
+          dlVerificationStatusColor = Colors.red;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isVerifyingDl = false;
+        isDlVerifiedSuccess = false;
+        dlVerificationStatusMessage = "⚠️ Network/Server error during DL verification";
+        dlVerificationStatusColor = Colors.orange;
+      });
     }
   }
 
@@ -694,6 +798,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
             label: "License Number",
             apiKey: "license_no",
             icon: Icons.assignment_ind),
+        _buildVerifyDlButton(),
         _buildLicenseDropdown(),
         _buildField(
             label: "License Expiry Date", apiKey: "license_doe", isDate: true),
@@ -722,6 +827,70 @@ class _DriverFormPageState extends State<DriverFormPage> {
           const Expanded(child: Divider()),
         ],
       ),
+    );
+  }
+
+  Widget _buildVerifyDlButton() {
+    return Column(
+      children: [
+        const SizedBox(height: 6),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDlVerifiedSuccess ? Colors.green.shade700 : primaryAmber,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: isVerifyingDl ? null : _verifyDrivingLicense,
+            icon: isVerifyingDl
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : Icon(isDlVerifiedSuccess ? Icons.verified : Icons.security_rounded, color: Colors.white),
+            label: Text(
+              isVerifyingDl
+                  ? "VERIFYING DL..."
+                  : (isDlVerifiedSuccess ? "DL VERIFIED WITH GOVT API" : "VERIFY DL VIA GOVT API"),
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5),
+            ),
+          ),
+        ),
+        if (dlVerificationStatusMessage != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: dlVerificationStatusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: dlVerificationStatusColor.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isDlVerifiedSuccess ? Icons.check_circle : Icons.info_outline,
+                  color: dlVerificationStatusColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    dlVerificationStatusMessage!,
+                    style: TextStyle(
+                      color: dlVerificationStatusColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+      ],
     );
   }
 
