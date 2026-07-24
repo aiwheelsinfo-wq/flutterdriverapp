@@ -428,10 +428,33 @@ class _DriverFormPageState extends State<DriverFormPage> {
   }
 
   Future<void> _submitForm(String status) async {
-    if (!_formKey.currentState!.validate()) return;
+    if (storedNumber == null || storedNumber!.isEmpty) {
+      storedNumber = await secureStorage.read(key: "phone_number");
+    }
+
+    if (!_formKey.currentState!.validate()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("⚠️ Please fill all required fields highlighted in red"),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     if (!_isAgree) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Please agree to terms")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("⚠️ Please check the terms declaration checkbox first"),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
       return;
     }
 
@@ -455,7 +478,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
     try {
       final resp = await http.post(
         Uri.parse(ApiConfig.registerDriver),
-
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(data),
       );
@@ -491,6 +513,16 @@ class _DriverFormPageState extends State<DriverFormPage> {
           return;
         }
 
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("✅ Driver Registered Successfully!"),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+
         setState(() {
           driverForm = false;
           addDriverSuccess = true;
@@ -499,10 +531,27 @@ class _DriverFormPageState extends State<DriverFormPage> {
         });
         _scrollController.animateTo(0,
             duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Server Error: ${resp.statusCode}"),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: $e"),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
