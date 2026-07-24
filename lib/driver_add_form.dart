@@ -486,12 +486,13 @@ class _DriverFormPageState extends State<DriverFormPage> {
     try {
       final resp = await http.post(
         Uri.parse(ApiConfig.registerDriver),
-
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(data),
       );
 
-      if (resp.statusCode == 200) {
+      final respData = jsonDecode(resp.body);
+
+      if (resp.statusCode == 200 && respData['status'] == 'success') {
         setState(() {
           driverForm = false;
           addDriverSuccess = true;
@@ -500,6 +501,10 @@ class _DriverFormPageState extends State<DriverFormPage> {
         });
         _scrollController.animateTo(0,
             duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
+      } else {
+        final errMsg = respData['message'] ?? 'Registration failed. Please try again.';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error: $errMsg"), backgroundColor: Colors.red));
       }
     } catch (e) {
       ScaffoldMessenger.of(context)
