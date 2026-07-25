@@ -401,7 +401,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
           'license_no': rawDl,
           'date_of_birth': _formatToBackend(dob),
         }),
-      ).timeout(const Duration(seconds: 12));
+      ).timeout(const Duration(seconds: 25));
 
       final data = jsonDecode(response.body);
 
