@@ -42,6 +42,8 @@ class _CarFormPageState extends State<CarFormPage> {
   bool addcabsuccess = false;
   bool carForm = true;
   bool _isAgree = false;
+  bool nextBtn = false;
+  String? phoneNumber;
   bool isVerifyingRc = false;
   bool isRcVerifiedSuccess = false;
   String? rcVerificationStatusMessage;
@@ -382,6 +384,9 @@ class _CarFormPageState extends State<CarFormPage> {
           rcVerificationStatusMessage = "✅ VEHICLE RC VERIFIED: $ownerName ($makerDesc $makerModel)";
           rcVerificationStatusColor = Colors.green;
 
+          if (_controllers['vehicle_id']!.text.isEmpty) {
+            _controllers['vehicle_id']!.text = rcNo;
+          }
           if (ownerName.isNotEmpty) {
             _controllers['rc_name']!.text = ownerName;
           }
@@ -393,9 +398,16 @@ class _CarFormPageState extends State<CarFormPage> {
             for (String f in fuelTypes) {
               if (f.toUpperCase().contains(fuelType) || fuelType.contains(f.toUpperCase())) {
                 _selectedFuelItem = f;
-                _controllers['vehicle_type']!.text = f;
                 break;
               }
+            }
+          }
+          final catString = (details['vehicle_category_description'] ?? details['vehicle_category'] ?? makerModel).toString().toUpperCase();
+          for (String cat in _carCategories) {
+            if (catString.contains(cat)) {
+              _selectedCarCategory = cat;
+              _controllers['vehicle_type']!.text = cat;
+              break;
             }
           }
           if (insNumber.isNotEmpty) {
