@@ -42,8 +42,10 @@ class _CarFormPageState extends State<CarFormPage> {
   bool addcabsuccess = false;
   bool carForm = true;
   bool _isAgree = false;
-  bool nextBtn = false;
-  String? phoneNumber;
+  bool isVerifyingRc = false;
+  bool isRcVerifiedSuccess = false;
+  String? rcVerificationStatusMessage;
+  Color rcVerificationStatusColor = Colors.grey;
 
   List<String> _carCategories = ['SEDAN', 'ERTIGA', 'INNOVA', 'CRYSTA'];
   String? _selectedCarCategory;
@@ -335,6 +337,216 @@ class _CarFormPageState extends State<CarFormPage> {
     }
   }
 
+  Future<void> _onVerifyRc() async {
+    final rcNo = _controllers['rc_no']!.text.trim().replaceAll(RegExp(r'[\s\-]'), '').toUpperCase();
+    if (rcNo.isEmpty || rcNo.length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please enter a valid Vehicle RC Number first."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      isVerifyingRc = true;
+      rcVerificationStatusMessage = "Connecting to Government RC Database...";
+      rcVerificationStatusColor = primaryAmber;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.verifyRc),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'rc_number': rcNo}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final details = data['data'] ?? {};
+        final ownerName = details['owner_name'] ?? "";
+        final makerModel = details['maker_model'] ?? "";
+        final makerDesc = details['maker_description'] ?? "";
+        final fuelType = (details['fuel_type'] ?? "").toString().toUpperCase();
+        final fitUpTo = details['fit_up_to'] ?? "";
+        final insNumber = details['insurance_policy_number'] ?? "";
+        final insUpto = details['insurance_upto'] ?? "";
+        final permitNo = details['permit_number'] ?? "";
+        final permitUpto = details['permit_valid_upto'] ?? "";
+
+        setState(() {
+          isVerifyingRc = false;
+          isRcVerifiedSuccess = true;
+          rcVerificationStatusMessage = "✅ VEHICLE RC VERIFIED: $ownerName ($makerDesc $makerModel)";
+          rcVerificationStatusColor = Colors.green;
+
+          if (ownerName.isNotEmpty) {
+            _controllers['rc_name']!.text = ownerName;
+          }
+          final fullModel = "$makerDesc $makerModel".trim();
+          if (fullModel.isNotEmpty) {
+            _controllers['vehicle_name']!.text = fullModel;
+          }
+          if (fuelType.isNotEmpty) {
+            for (String f in fuelTypes) {
+              if (f.toUpperCase().contains(fuelType) || fuelType.contains(f.toUpperCase())) {
+                _selectedFuelItem = f;
+                _controllers['vehicle_type']!.text = f;
+                break;
+              }
+            }
+          }
+          if (insNumber.isNotEmpty) {
+            _controllers['insurance_number']!.text = insNumber;
+          }
+          if (insUpto.isNotEmpty) {
+            try {
+              final pDate = DateTime.parse(insUpto);
+              _controllers['insurance_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+            } catch (e) {
+              _controllers['insurance_doe']!.text = insUpto;
+            }
+          }
+          if (fitUpTo.isNotEmpty) {
+            try {
+              final pDate = DateTime.parse(fitUpTo);
+              final formatted = DateFormat('dd-MM-yyyy').format(pDate);
+              _controllers['fitness_certificate_doe']!.text = formatted;
+              _controllers['rc_manufecture_date']!.text = formatted;
+            } catch (e) {
+              _controllers['fitness_certificate_doe']!.text = fitUpTo;
+              _controllers['rc_manufecture_date']!.text = fitUpTo;
+            }
+          }
+          if (permitNo.isNotEmpty) {
+            _controllers['texi_permit_no']!.text = permitNo;
+          }
+          if (permitUpto.isNotEmpty) {
+            try {
+              final pDate = DateTime.parse(permitUpto);
+              _controllers['texi_permit_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+            } catch (e) {
+              _controllers['texi_permit_doe']!.text = permitUpto;
+            }
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("✅ Vehicle RC Verified for $ownerName! Auto-populated vehicle specs."),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        final err = data['message'] ?? "RC Verification failed.";
+        setState(() {
+          isVerifyingRc = false;
+          isRcVerifiedSuccess = false;
+          rcVerificationStatusMessage = "❌ $err";
+          rcVerificationStatusColor = Colors.redAccent;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isVerifyingRc = false;
+        isRcVerifiedSuccess = false;
+        rcVerificationStatusMessage = "❌ Connection Error: $e";
+        rcVerificationStatusColor = Colors.redAccent;
+      });
+    }
+  }
+
+  Widget _buildVerifyRcButton() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isRcVerifiedSuccess
+                    ? Colors.green
+                    : primaryAmber,
+                foregroundColor: isRcVerifiedSuccess ? Colors.white : charcoal,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+              onPressed: isVerifyingRc ? null : _onVerifyRc,
+              icon: isVerifyingRc
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: charcoal,
+                      ),
+                    )
+                  : Icon(
+                      isRcVerifiedSuccess
+                          ? Icons.verified
+                          : Icons.verified_user_outlined,
+                      size: 20,
+                    ),
+              label: Text(
+                isVerifyingRc
+                    ? "VERIFYING WITH GOVT API..."
+                    : isRcVerifiedSuccess
+                        ? "VEHICLE RC VERIFIED WITH GOVT API ✓"
+                        : "VERIFY VEHICLE RC WITH GOVT API",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+          if (rcVerificationStatusMessage != null)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: rcVerificationStatusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: rcVerificationStatusColor.withOpacity(0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isRcVerifiedSuccess
+                        ? Icons.check_circle
+                        : Icons.info_outline,
+                    color: rcVerificationStatusColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      rcVerificationStatusMessage!,
+                      style: TextStyle(
+                        color: rcVerificationStatusColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -468,7 +680,8 @@ class _CarFormPageState extends State<CarFormPage> {
 
           _buildSectionHeader("RC Details", Icons.assignment),
           _buildField(
-              label: "RC Number", apiKey: "rc_no", hint: "Ex: ABC123456789"),
+              label: "RC Number", apiKey: "rc_no", hint: "Ex: KL73A1234"),
+          _buildVerifyRcButton(),
           _buildField(
               label: "Owner Name (As on RC)",
               apiKey: "rc_name",

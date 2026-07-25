@@ -48,6 +48,7 @@ class ApiConfig {
   static const String updateFcmToken = "$driverPath/update_fcm_token.php";
   static const String updateLocation = "$driverPath/update_location.php";
   static const String verifyDl = "$driverPath/verify_dl.php";
+  static const String verifyRc = "$driverPath/verify_rc.php";
 
   // Assets
   static const String add1Webp = "$driverPath/add/add1.webp";
