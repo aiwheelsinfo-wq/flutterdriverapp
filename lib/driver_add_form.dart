@@ -460,32 +460,48 @@ class _DriverFormPageState extends State<DriverFormPage> {
               final ignoreWords = {
                 'KL', 'KA', 'MH', 'TN', 'DL', 'GJ', 'RJ', 'UP', 'MP', 'HR', 'PB', 'AP', 'TS', 'INDIA', 'IN',
                 'KERALA', 'KARNATAKA', 'TAMILNADU', 'MAHARASHTRA', 'CARE', 'OF', 'C/O', 'S/O', 'W/O', 'D/O',
-                'HOUSE', 'DOOR', 'STREET', 'ROAD', 'POST', 'PO', 'P.O', 'DIST', 'DISTRICT', 'TALUK'
+                'HOUSE', 'DOOR', 'STREET', 'ROAD', 'POST', 'PO', 'P.O', 'DIST', 'DISTRICT', 'TALUK', 'VIA'
               };
 
-              // Clean address parts
+              final knownCities = {
+                'WAYANAD', 'KOZHIKODE', 'CALICUT', 'MALAPPURAM', 'KANNUR', 'THIRUVANANTHAPURAM', 'TRIVANDRUM',
+                'ERNAKULAM', 'COCHIN', 'KOCHI', 'PALAKKAD', 'THRISSUR', 'KOTTAYAM', 'ALAPPUZHA', 'ALLEPPEY',
+                'IDUKKI', 'PATHANAMTHITTA', 'KASARAGOD', 'MYSORE', 'MYSURU', 'BENGALURU', 'BANGALORE',
+                'GUNDLUPET', 'SULTHANBATHERY', 'BATHERY', 'KALPETTA', 'MANANTHAVADY', 'IRULAM', 'CHEEYAMBAM',
+                'PULPALLY', 'MEENANGADI', 'VYTHIRI', 'AMBALAVAYAL'
+              };
+
               final parts = address.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
               String foundCity = '';
 
-              for (int i = 0; i < parts.length; i++) {
-                final segment = parts[i];
-                final upperSeg = segment.toUpperCase();
-                
-                // Skip Care Of (C/O ...) segments
-                if (upperSeg.startsWith('C/O') || upperSeg.startsWith('S/O') || upperSeg.startsWith('W/O') || upperSeg.startsWith('D/O')) {
-                  continue;
+              // Pass 1: Check for known city/district names in address
+              final fullUpper = address.toUpperCase();
+              for (String city in knownCities) {
+                if (fullUpper.contains(city)) {
+                  foundCity = city;
+                  break;
                 }
+              }
 
-                // Extract words from segment
-                final words = segment.replaceAll(RegExp(r'[^\w\s]'), ' ').split(RegExp(r'\s+'));
-                for (String w in words) {
-                  final cleanW = w.trim().toUpperCase();
-                  if (cleanW.length >= 3 && !RegExp(r'^\d+$').hasMatch(cleanW) && !ignoreWords.contains(cleanW)) {
-                    foundCity = cleanW;
-                    break;
+              // Pass 2: Reverse parse city segment right before state/pin
+              if (foundCity.isEmpty) {
+                for (int i = parts.length - 1; i >= 0; i--) {
+                  final segment = parts[i];
+                  final upperSeg = segment.toUpperCase();
+                  if (upperSeg.startsWith('C/O') || upperSeg.startsWith('S/O') || upperSeg.startsWith('W/O') || upperSeg.startsWith('D/O')) {
+                    continue;
                   }
+
+                  final words = segment.replaceAll(RegExp(r'[^\w\s]'), ' ').split(RegExp(r'\s+'));
+                  for (int wIdx = words.length - 1; wIdx >= 0; wIdx--) {
+                    final cleanW = words[wIdx].trim().toUpperCase();
+                    if (cleanW.length >= 3 && !RegExp(r'^\d+$').hasMatch(cleanW) && !ignoreWords.contains(cleanW)) {
+                      foundCity = cleanW;
+                      break;
+                    }
+                  }
+                  if (foundCity.isNotEmpty) break;
                 }
-                if (foundCity.isNotEmpty) break;
               }
 
               if (foundCity.isNotEmpty) {
