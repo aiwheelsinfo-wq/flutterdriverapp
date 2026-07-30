@@ -648,7 +648,10 @@ class _CarFormPageState extends State<CarFormPage> {
           // ---------------- 1. RC DETAILS (FIRST AT THE TOP) ----------------
           _buildSectionHeader("RC Details", Icons.assignment),
           _buildField(
-              label: "RC Number", apiKey: "rc_no", hint: "Ex: KL73A1234"),
+              label: "RC Number",
+              apiKey: "rc_no",
+              readOnly: isRcVerifiedSuccess && _controllers['rc_no']!.text.isNotEmpty,
+              hint: "Ex: KL73A1234"),
           _buildVerifyRcButton(),
           _buildField(
               label: "Owner Name (As on RC)",
@@ -666,6 +669,7 @@ class _CarFormPageState extends State<CarFormPage> {
           _buildField(
               label: "Vehicle Reg Number",
               apiKey: "vehicle_id",
+              readOnly: isRcVerifiedSuccess && _controllers['vehicle_id']!.text.isNotEmpty,
               hint: "Ex: KL 73 A 1234"),
           Row(
             children: [
