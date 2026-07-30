@@ -451,20 +451,45 @@ class _DriverFormPageState extends State<DriverFormPage> {
               }
             }
 
-            // 2. Auto-populate City (direct API field or parsed from comma-separated address)
+            // 2. Auto-populate City (direct API field or smart parsing from address)
             final directCity = (details['city'] ?? details['district'] ?? "").toString().trim();
             if (directCity.isNotEmpty) {
               _controllers['driver_city']!.text = directCity;
             } else {
+              // Parse city/district from address text
+              final ignoreWords = {
+                'KL', 'KA', 'MH', 'TN', 'DL', 'GJ', 'RJ', 'UP', 'MP', 'HR', 'PB', 'AP', 'TS', 'INDIA', 'IN',
+                'KERALA', 'KARNATAKA', 'TAMILNADU', 'MAHARASHTRA', 'CARE', 'OF', 'C/O', 'S/O', 'W/O', 'D/O',
+                'HOUSE', 'DOOR', 'STREET', 'ROAD', 'POST', 'PO', 'P.O', 'DIST', 'DISTRICT', 'TALUK'
+              };
+
+              // Clean address parts
               final parts = address.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-              final stateAbbrs = {'KL', 'KA', 'MH', 'TN', 'DL', 'GJ', 'RJ', 'UP', 'MP', 'HR', 'PB', 'AP', 'TS', 'INDIA', 'IN'};
-              for (int i = parts.length - 1; i >= 0; i--) {
-                final part = parts[i];
-                final upper = part.toUpperCase();
-                if (!RegExp(r'^\d{6}$').hasMatch(part) && part.length >= 3 && !stateAbbrs.contains(upper)) {
-                  _controllers['driver_city']!.text = part;
-                  break;
+              String foundCity = '';
+
+              for (int i = 0; i < parts.length; i++) {
+                final segment = parts[i];
+                final upperSeg = segment.toUpperCase();
+                
+                // Skip Care Of (C/O ...) segments
+                if (upperSeg.startsWith('C/O') || upperSeg.startsWith('S/O') || upperSeg.startsWith('W/O') || upperSeg.startsWith('D/O')) {
+                  continue;
                 }
+
+                // Extract words from segment
+                final words = segment.replaceAll(RegExp(r'[^\w\s]'), ' ').split(RegExp(r'\s+'));
+                for (String w in words) {
+                  final cleanW = w.trim().toUpperCase();
+                  if (cleanW.length >= 3 && !RegExp(r'^\d+$').hasMatch(cleanW) && !ignoreWords.contains(cleanW)) {
+                    foundCity = cleanW;
+                    break;
+                  }
+                }
+                if (foundCity.isNotEmpty) break;
+              }
+
+              if (foundCity.isNotEmpty) {
+                _controllers['driver_city']!.text = foundCity;
               }
             }
           }
