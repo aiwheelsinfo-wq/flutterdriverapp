@@ -670,7 +670,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
         controller: _controllers[apiKey],
         readOnly: readOnly || isDate,
         enabled: !readOnly,
-        onTap: isDate ? () => _pickDate(apiKey) : null,
+        onTap: (isDate && !readOnly) ? () => _pickDate(apiKey) : null,
         onChanged: onChanged,
         maxLength: maxLength,
         keyboardType: keyboard,
@@ -1070,6 +1070,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
             label: "Date of Birth (DOB)",
             apiKey: "date_of_birth",
             isDate: true,
+            readOnly: isDlVerifiedSuccess && _controllers['date_of_birth']!.text.isNotEmpty,
             hint: "SELECT DOB FIRST (DD-MM-YYYY)",
             icon: Icons.cake),
 
@@ -1079,9 +1080,16 @@ class _DriverFormPageState extends State<DriverFormPage> {
         // 1d. Category, Issue Date & Expiry Date
         _buildLicenseDropdown(),
         _buildField(
-            label: "License Issue Date", apiKey: "license_doi", isDate: true, icon: Icons.calendar_month),
+            label: "License Issue Date",
+            apiKey: "license_doi",
+            isDate: true,
+            readOnly: isDlVerifiedSuccess && _controllers['license_doi']!.text.isNotEmpty,
+            icon: Icons.calendar_month),
         _buildField(
-            label: "License Expiry Date", apiKey: "license_doe", isDate: true),
+            label: "License Expiry Date",
+            apiKey: "license_doe",
+            isDate: true,
+            readOnly: isDlVerifiedSuccess && _controllers['license_doe']!.text.isNotEmpty),
 
         const SizedBox(height: 20),
 
@@ -1091,6 +1099,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
             label: "Full Name",
             apiKey: "full_name",
             hint: "As per Adhaar / Govt DL",
+            readOnly: isDlVerifiedSuccess && _controllers['full_name']!.text.isNotEmpty,
             icon: Icons.person),
         _buildField(
             label: "Email Address",
@@ -1099,17 +1108,29 @@ class _DriverFormPageState extends State<DriverFormPage> {
             icon: Icons.email,
             keyboard: TextInputType.emailAddress),
         _buildField(
-            label: "Address", apiKey: "driver_address", icon: Icons.map),
+            label: "Address",
+            apiKey: "driver_address",
+            readOnly: isDlVerifiedSuccess && _controllers['driver_address']!.text.isNotEmpty,
+            icon: Icons.map),
         Row(
           children: [
-            Expanded(child: _buildField(label: "City", apiKey: "driver_city")),
+            Expanded(
+              child: _buildField(
+                label: "City",
+                apiKey: "driver_city",
+                readOnly: isDlVerifiedSuccess && _controllers['driver_city']!.text.isNotEmpty,
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(
-                child: _buildField(
-                    label: "Pin Code",
-                    apiKey: "pin_code",
-                    maxLength: 6,
-                    keyboard: TextInputType.number)),
+              child: _buildField(
+                label: "Pin Code",
+                apiKey: "pin_code",
+                maxLength: 6,
+                readOnly: isDlVerifiedSuccess && _controllers['pin_code']!.text.isNotEmpty,
+                keyboard: TextInputType.number,
+              ),
+            ),
           ],
         ),
 
