@@ -19,6 +19,8 @@ import 'checkAndRoot.dart';
 import 'driver_add_form.dart';
 import 'owner_account.dart';
 import 'whatsapp_booking_list.dart';
+import 'booking_list.dart';
+import 'owner_reg_page.dart';
 
 class SubDriverPage extends StatefulWidget {
   const SubDriverPage({super.key});
@@ -120,6 +122,64 @@ class _SubDriverPageState extends State<SubDriverPage> {
       setState(() {
         driverCode = "ERR";
       });
+    }
+  }
+
+  Future<void> _switchToVendor() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Colors.amber),
+      ),
+    );
+
+    try {
+      await secureStorage.write(key: "userType", value: "Vender");
+      String? number = storedNumber ?? await secureStorage.read(key: "phone_number");
+
+      var response = await http.post(
+        Uri.parse(ApiConfig.statusChangeNotFilled),
+        body: {"stored_number": number ?? ""},
+      ).timeout(const Duration(seconds: 10));
+
+      if (mounted) Navigator.pop(context); // Close loading dialog
+
+      var data = jsonDecode(response.body);
+
+      if (data["success"] == true) {
+        final statusVal = (data["current_status"] ?? data["new_status"] ?? "").toString().toLowerCase();
+        if (statusVal == "active" || statusVal == "filled" || statusVal == "not car" || statusVal == "notified") {
+          if (mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => BookingListPage(phoneNumber: number ?? "")),
+              (route) => false,
+            );
+          }
+        } else {
+          if (mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const OwnerRegPage()),
+              (route) => false,
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data["message"] ?? "Vendor switch failed")),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error switching to Vendor mode. Please try again.")),
+        );
+      }
     }
   }
 
@@ -243,6 +303,10 @@ class _SubDriverPageState extends State<SubDriverPage> {
           centerTitle: true,
           actions: [
             IconButton(
+                tooltip: "Switch to Vendor Mode",
+                icon: Icon(Icons.swap_horiz_rounded, color: primaryAmber, size: 28),
+                onPressed: _switchToVendor),
+            IconButton(
                 icon: Icon(Icons.notifications_none, color: darkGrey),
                 onPressed: () {}),
           ],
@@ -282,6 +346,71 @@ class _SubDriverPageState extends State<SubDriverPage> {
                             MaterialPageRoute(
                                 builder: (_) => DocumentExperedPage()))),
                   ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Switch to Vendor Banner
+                GestureDetector(
+                  onTap: _switchToVendor,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: primaryAmber, width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryAmber.withOpacity(0.12),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: primaryAmber.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.sync_alt_rounded, color: primaryAmber, size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "SWITCH TO VENDOR APP",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: darkGrey,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                "Manage your fleet, cars & vendor duties",
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: primaryAmber,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(Icons.arrow_forward, size: 16, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 20),
