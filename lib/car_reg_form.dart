@@ -241,6 +241,7 @@ class _CarFormPageState extends State<CarFormPage> {
     String? hint,
     bool isDate = false,
     bool isRequired = true,
+    bool readOnly = false,
   }) {
     bool isOptionalForYellow = [
           'texi_permit_no',
@@ -256,8 +257,9 @@ class _CarFormPageState extends State<CarFormPage> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextFormField(
         controller: _controllers[apiKey],
-        readOnly: isDate,
-        onTap: isDate ? () => _pickDate(apiKey) : null,
+        readOnly: readOnly || isDate,
+        enabled: !readOnly,
+        onTap: (isDate && !readOnly) ? () => _pickDate(apiKey) : null,
         textCapitalization: TextCapitalization.characters,
         inputFormatters: [UpperCaseTextFormatter()],
         style: const TextStyle(fontSize: 15, color: charcoal),
@@ -270,7 +272,7 @@ class _CarFormPageState extends State<CarFormPage> {
               ? const Icon(Icons.calendar_month, size: 18, color: primaryAmber)
               : null,
           filled: true,
-          fillColor: Colors.white,
+          fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey.shade300)),
@@ -280,6 +282,9 @@ class _CarFormPageState extends State<CarFormPage> {
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: primaryAmber, width: 2)),
+          disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade200)),
         ),
         validator: (val) {
           if (isOptionalForYellow) return null;
@@ -640,11 +645,28 @@ class _CarFormPageState extends State<CarFormPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ---------------- 1. RC DETAILS (FIRST AT THE TOP) ----------------
+          _buildSectionHeader("RC Details", Icons.assignment),
+          _buildField(
+              label: "RC Number", apiKey: "rc_no", hint: "Ex: KL73A1234"),
+          _buildVerifyRcButton(),
+          _buildField(
+              label: "Owner Name (As on RC)",
+              apiKey: "rc_name",
+              readOnly: isRcVerifiedSuccess && _controllers['rc_name']!.text.isNotEmpty,
+              hint: "Ex: RAJESH KUMAR"),
+          _buildField(
+              label: "RC Expiry Date",
+              apiKey: "rc_manufecture_date",
+              readOnly: isRcVerifiedSuccess && _controllers['rc_manufecture_date']!.text.isNotEmpty,
+              isDate: true),
+
+          // ---------------- 2. VEHICLE BASICS ----------------
           _buildSectionHeader("Vehicle Basics", Icons.directions_car),
           _buildField(
               label: "Vehicle Reg Number",
               apiKey: "vehicle_id",
-              hint: "Ex: MH 12 AB 1234"),
+              hint: "Ex: KL 73 A 1234"),
           Row(
             children: [
               Expanded(
@@ -665,6 +687,7 @@ class _CarFormPageState extends State<CarFormPage> {
                   child: _buildField(
                       label: "Model Name",
                       apiKey: "vehicle_name",
+                      readOnly: isRcVerifiedSuccess && _controllers['vehicle_name']!.text.isNotEmpty,
                       hint: "Ex: SWIFT DZIRE")),
             ],
           ),
@@ -679,11 +702,12 @@ class _CarFormPageState extends State<CarFormPage> {
               value: _selectedPlateColor,
               onChanged: (v) => setState(() => _selectedPlateColor = v)),
 
+          // ---------------- 3. LICENSE INFORMATION ----------------
           _buildSectionHeader("License Information", Icons.badge),
           _buildField(
               label: "License Number",
               apiKey: "license_no",
-              hint: "Ex: MH12 20100012345"),
+              hint: "Ex: KL73 20220004599"),
           _buildDropdown(
               label: "License Category (4-Wheel & Above)",
               items: indianLicenseTypes,
@@ -699,26 +723,18 @@ class _CarFormPageState extends State<CarFormPage> {
               apiKey: "license_doe",
               isDate: true),
 
-          _buildSectionHeader("RC Details", Icons.assignment),
-          _buildField(
-              label: "RC Number", apiKey: "rc_no", hint: "Ex: KL73A1234"),
-          _buildVerifyRcButton(),
-          _buildField(
-              label: "Owner Name (As on RC)",
-              apiKey: "rc_name",
-              hint: "Ex: RAJESH KUMAR"),
-          _buildField(
-              label: "RC Expiry Date",
-              apiKey: "rc_manufecture_date",
-              isDate: true),
-
+          // ---------------- 4. INSURANCE & PUC ----------------
           _buildSectionHeader("Insurance & PUC", Icons.verified_user),
           _buildField(
               label: "Insurance Policy No",
               apiKey: "insurance_number",
+              readOnly: isRcVerifiedSuccess && _controllers['insurance_number']!.text.isNotEmpty,
               hint: "Ex: POL1234567"),
           _buildField(
-              label: "Insurance Expiry", apiKey: "insurance_doe", isDate: true),
+              label: "Insurance Expiry",
+              apiKey: "insurance_doe",
+              readOnly: isRcVerifiedSuccess && _controllers['insurance_doe']!.text.isNotEmpty,
+              isDate: true),
           Row(
             children: [
               Expanded(
@@ -744,6 +760,7 @@ class _CarFormPageState extends State<CarFormPage> {
                 label: "Permit Number",
                 apiKey: "texi_permit_no",
                 isRequired: false,
+                readOnly: isRcVerifiedSuccess && _controllers['texi_permit_no']!.text.isNotEmpty,
                 hint: "Ex: PMT998877"),
             Row(
               children: [
@@ -759,6 +776,7 @@ class _CarFormPageState extends State<CarFormPage> {
                         label: "Permit DOE",
                         apiKey: "texi_permit_doe",
                         isDate: true,
+                        readOnly: isRcVerifiedSuccess && _controllers['texi_permit_doe']!.text.isNotEmpty,
                         isRequired: false)),
               ],
             ),
@@ -768,6 +786,12 @@ class _CarFormPageState extends State<CarFormPage> {
                 apiKey: "fitness_certificate_no",
                 isRequired: false,
                 hint: "Ex: FIT112233"),
+            _buildField(
+                label: "Fitness Expiry Date",
+                apiKey: "fitness_certificate_doe",
+                isDate: true,
+                readOnly: isRcVerifiedSuccess && _controllers['fitness_certificate_doe']!.text.isNotEmpty,
+                isRequired: false),
             Row(
               children: [
                 Expanded(
