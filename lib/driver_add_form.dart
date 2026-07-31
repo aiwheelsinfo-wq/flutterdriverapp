@@ -956,6 +956,8 @@ class _DriverFormPageState extends State<DriverFormPage> {
             children: [
               TextFormField(
                 controller: _controllers['license_no'],
+                readOnly: isDlVerifiedSuccess,
+                enabled: !isDlVerifiedSuccess,
                 onChanged: (val) {
                   if (val.length >= 15) _checkDlExists(val);
                   if (val.length < 15 && (isDlDuplicate || isDlUnique)) {
@@ -974,7 +976,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
                   hintText: 'E.G. KL7320220004599',
                   counterText: '',
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: isDlVerifiedSuccess ? Colors.grey.shade100 : Colors.white,
                   prefixIcon: Icon(
                     Icons.assignment_ind,
                     color: isDlDuplicate
@@ -1070,7 +1072,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
             label: "Date of Birth (DOB)",
             apiKey: "date_of_birth",
             isDate: true,
-            readOnly: isDlVerifiedSuccess && _controllers['date_of_birth']!.text.isNotEmpty,
             hint: "SELECT DOB FIRST (DD-MM-YYYY)",
             icon: Icons.cake),
 
@@ -1083,13 +1084,11 @@ class _DriverFormPageState extends State<DriverFormPage> {
             label: "License Issue Date",
             apiKey: "license_doi",
             isDate: true,
-            readOnly: isDlVerifiedSuccess && _controllers['license_doi']!.text.isNotEmpty,
             icon: Icons.calendar_month),
         _buildField(
             label: "License Expiry Date",
             apiKey: "license_doe",
-            isDate: true,
-            readOnly: isDlVerifiedSuccess && _controllers['license_doe']!.text.isNotEmpty),
+            isDate: true),
 
         const SizedBox(height: 20),
 
@@ -1099,7 +1098,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
             label: "Full Name",
             apiKey: "full_name",
             hint: "As per Adhaar / Govt DL",
-            readOnly: isDlVerifiedSuccess && _controllers['full_name']!.text.isNotEmpty,
             icon: Icons.person),
         _buildField(
             label: "Email Address",
@@ -1110,7 +1108,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
         _buildField(
             label: "Address",
             apiKey: "driver_address",
-            readOnly: isDlVerifiedSuccess && _controllers['driver_address']!.text.isNotEmpty,
             icon: Icons.map),
         Row(
           children: [
@@ -1118,7 +1115,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
               child: _buildField(
                 label: "City",
                 apiKey: "driver_city",
-                readOnly: isDlVerifiedSuccess && _controllers['driver_city']!.text.isNotEmpty,
               ),
             ),
             const SizedBox(width: 10),
@@ -1127,7 +1123,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
                 label: "Pin Code",
                 apiKey: "pin_code",
                 maxLength: 6,
-                readOnly: isDlVerifiedSuccess && _controllers['pin_code']!.text.isNotEmpty,
                 keyboard: TextInputType.number,
               ),
             ),

@@ -650,18 +650,16 @@ class _CarFormPageState extends State<CarFormPage> {
           _buildField(
               label: "RC Number",
               apiKey: "rc_no",
-              readOnly: isRcVerifiedSuccess && _controllers['rc_no']!.text.isNotEmpty,
+              readOnly: isRcVerifiedSuccess,
               hint: "Ex: KL73A1234"),
           _buildVerifyRcButton(),
           _buildField(
               label: "Owner Name (As on RC)",
               apiKey: "rc_name",
-              readOnly: isRcVerifiedSuccess && _controllers['rc_name']!.text.isNotEmpty,
               hint: "Ex: RAJESH KUMAR"),
           _buildField(
               label: "RC Expiry Date",
               apiKey: "rc_manufecture_date",
-              readOnly: isRcVerifiedSuccess && _controllers['rc_manufecture_date']!.text.isNotEmpty,
               isDate: true),
 
           // ---------------- 2. VEHICLE BASICS ----------------
@@ -669,7 +667,7 @@ class _CarFormPageState extends State<CarFormPage> {
           _buildField(
               label: "Vehicle Reg Number",
               apiKey: "vehicle_id",
-              readOnly: isRcVerifiedSuccess && _controllers['vehicle_id']!.text.isNotEmpty,
+              readOnly: isRcVerifiedSuccess,
               hint: "Ex: KL 73 A 1234"),
           Row(
             children: [
@@ -691,7 +689,6 @@ class _CarFormPageState extends State<CarFormPage> {
                   child: _buildField(
                       label: "Model Name",
                       apiKey: "vehicle_name",
-                      readOnly: isRcVerifiedSuccess && _controllers['vehicle_name']!.text.isNotEmpty,
                       hint: "Ex: SWIFT DZIRE")),
             ],
           ),
@@ -732,12 +729,10 @@ class _CarFormPageState extends State<CarFormPage> {
           _buildField(
               label: "Insurance Policy No",
               apiKey: "insurance_number",
-              readOnly: isRcVerifiedSuccess && _controllers['insurance_number']!.text.isNotEmpty,
               hint: "Ex: POL1234567"),
           _buildField(
               label: "Insurance Expiry",
               apiKey: "insurance_doe",
-              readOnly: isRcVerifiedSuccess && _controllers['insurance_doe']!.text.isNotEmpty,
               isDate: true),
           Row(
             children: [
@@ -764,7 +759,6 @@ class _CarFormPageState extends State<CarFormPage> {
                 label: "Permit Number",
                 apiKey: "texi_permit_no",
                 isRequired: false,
-                readOnly: isRcVerifiedSuccess && _controllers['texi_permit_no']!.text.isNotEmpty,
                 hint: "Ex: PMT998877"),
             Row(
               children: [
@@ -780,7 +774,6 @@ class _CarFormPageState extends State<CarFormPage> {
                         label: "Permit DOE",
                         apiKey: "texi_permit_doe",
                         isDate: true,
-                        readOnly: isRcVerifiedSuccess && _controllers['texi_permit_doe']!.text.isNotEmpty,
                         isRequired: false)),
               ],
             ),
@@ -794,7 +787,6 @@ class _CarFormPageState extends State<CarFormPage> {
                 label: "Fitness Expiry Date",
                 apiKey: "fitness_certificate_doe",
                 isDate: true,
-                readOnly: isRcVerifiedSuccess && _controllers['fitness_certificate_doe']!.text.isNotEmpty,
                 isRequired: false),
             Row(
               children: [
