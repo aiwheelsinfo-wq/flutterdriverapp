@@ -742,28 +742,7 @@ class _CarFormPageState extends State<CarFormPage> {
               value: _selectedPlateColor,
               onChanged: (v) => setState(() => _selectedPlateColor = v)),
 
-          // ---------------- 3. LICENSE INFORMATION ----------------
-          _buildSectionHeader("License Information", Icons.badge),
-          _buildField(
-              label: "License Number",
-              apiKey: "license_no",
-              hint: "Ex: KL73 20220004599"),
-          _buildDropdown(
-              label: "License Category (4-Wheel & Above)",
-              items: indianLicenseTypes,
-              value: _selectedLicenseType,
-              onChanged: (v) {
-                setState(() {
-                  _selectedLicenseType = v;
-                  _controllers['license_type']!.text = v ?? '';
-                });
-              }),
-          _buildField(
-              label: "License Expiry (DOE)",
-              apiKey: "license_doe",
-              isDate: true),
-
-          // ---------------- 4. INSURANCE & PUC ----------------
+          // ---------------- 3. INSURANCE & PUC ----------------
           _buildSectionHeader("Insurance & PUC", Icons.verified_user),
           _buildField(
               label: "Insurance Policy No",
