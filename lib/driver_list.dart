@@ -353,12 +353,32 @@ class _DriverListPageState extends State<DriverListPage> {
                   ),
                 ),
 
-                // 3. Delete Button (Isolated to prevent row overflow)
-                IconButton(
-                  onPressed: () => _confirmDelete(driverId),
-                  icon: const Icon(Icons.delete_outline,
-                      color: Colors.redAccent, size: 20),
-                  visualDensity: VisualDensity.compact,
+                // 3. Edit & Delete Action Buttons
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: "Edit Driver",
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DriverFormPage(driverData: driver),
+                          ),
+                        ).then((_) => fetchDrivers());
+                      },
+                      icon: const Icon(Icons.edit_outlined,
+                          color: Colors.blueAccent, size: 20),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    IconButton(
+                      tooltip: "Delete Driver",
+                      onPressed: () => _confirmDelete(driverId),
+                      icon: const Icon(Icons.delete_outline,
+                          color: Colors.redAccent, size: 20),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
                 ),
               ],
             ),

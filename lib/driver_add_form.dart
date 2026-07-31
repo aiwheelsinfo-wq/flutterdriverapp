@@ -19,7 +19,8 @@ class UpperCaseTextFormatter extends TextInputFormatter {
 }
 
 class DriverFormPage extends StatefulWidget {
-  const DriverFormPage({super.key});
+  final Map<String, dynamic>? driverData;
+  const DriverFormPage({super.key, this.driverData});
 
   @override
   _DriverFormPageState createState() => _DriverFormPageState();
@@ -100,6 +101,24 @@ class _DriverFormPageState extends State<DriverFormPage> {
       'adhaar_card_no': TextEditingController(),
       'pan_card_no': TextEditingController(),
     };
+
+    if (widget.driverData != null) {
+      final d = widget.driverData!;
+      _controllers['phone_number']!.text = (d['phone_number'] ?? d['driver_id'] ?? '').toString();
+      _controllers['driver_code']!.text = (d['driver_code'] ?? '').toString();
+      _controllers['full_name']!.text = (d['full_name'] ?? '').toString();
+      _controllers['email']!.text = (d['email'] ?? '').toString();
+      _controllers['driver_address']!.text = (d['driver_address'] ?? '').toString();
+      _controllers['driver_city']!.text = (d['driver_city'] ?? '').toString();
+      _controllers['date_of_birth']!.text = (d['date_of_birth'] ?? d['dob'] ?? '').toString();
+      _controllers['pin_code']!.text = (d['pin_code'] ?? d['pincode'] ?? '').toString();
+      _controllers['license_no']!.text = (d['license_no'] ?? '').toString();
+      _controllers['license_doi']!.text = (d['license_doi'] ?? '').toString();
+      _controllers['license_doe']!.text = (d['license_doe'] ?? '').toString();
+      _controllers['license_type']!.text = (d['license_type'] ?? '').toString();
+      _controllers['adhaar_card_no']!.text = (d['adhaar_card_no'] ?? d['adhaar_number'] ?? '').toString();
+      _controllers['pan_card_no']!.text = (d['pan_card_no'] ?? d['pan_number'] ?? '').toString();
+    }
   }
 
   void _showInitialHint() {
@@ -956,8 +975,6 @@ class _DriverFormPageState extends State<DriverFormPage> {
             children: [
               TextFormField(
                 controller: _controllers['license_no'],
-                readOnly: isDlVerifiedSuccess,
-                enabled: !isDlVerifiedSuccess,
                 onChanged: (val) {
                   if (val.length >= 15) _checkDlExists(val);
                   if (val.length < 15 && (isDlDuplicate || isDlUnique)) {
@@ -976,7 +993,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
                   hintText: 'E.G. KL7320220004599',
                   counterText: '',
                   filled: true,
-                  fillColor: isDlVerifiedSuccess ? Colors.grey.shade100 : Colors.white,
+                  fillColor: Colors.white,
                   prefixIcon: Icon(
                     Icons.assignment_ind,
                     color: isDlDuplicate
@@ -1072,6 +1089,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
             label: "Date of Birth (DOB)",
             apiKey: "date_of_birth",
             isDate: true,
+            readOnly: isDlVerifiedSuccess && _controllers['date_of_birth']!.text.isNotEmpty,
             hint: "SELECT DOB FIRST (DD-MM-YYYY)",
             icon: Icons.cake),
 
@@ -1084,11 +1102,13 @@ class _DriverFormPageState extends State<DriverFormPage> {
             label: "License Issue Date",
             apiKey: "license_doi",
             isDate: true,
+            readOnly: isDlVerifiedSuccess && _controllers['license_doi']!.text.isNotEmpty,
             icon: Icons.calendar_month),
         _buildField(
             label: "License Expiry Date",
             apiKey: "license_doe",
-            isDate: true),
+            isDate: true,
+            readOnly: isDlVerifiedSuccess && _controllers['license_doe']!.text.isNotEmpty),
 
         const SizedBox(height: 20),
 
@@ -1098,6 +1118,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
             label: "Full Name",
             apiKey: "full_name",
             hint: "As per Adhaar / Govt DL",
+            readOnly: isDlVerifiedSuccess && _controllers['full_name']!.text.isNotEmpty,
             icon: Icons.person),
         _buildField(
             label: "Email Address",
@@ -1108,6 +1129,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
         _buildField(
             label: "Address",
             apiKey: "driver_address",
+            readOnly: isDlVerifiedSuccess && _controllers['driver_address']!.text.isNotEmpty,
             icon: Icons.map),
         Row(
           children: [
@@ -1115,6 +1137,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
               child: _buildField(
                 label: "City",
                 apiKey: "driver_city",
+                readOnly: isDlVerifiedSuccess && _controllers['driver_city']!.text.isNotEmpty,
               ),
             ),
             const SizedBox(width: 10),
@@ -1123,6 +1146,7 @@ class _DriverFormPageState extends State<DriverFormPage> {
                 label: "Pin Code",
                 apiKey: "pin_code",
                 maxLength: 6,
+                readOnly: isDlVerifiedSuccess && _controllers['pin_code']!.text.isNotEmpty,
                 keyboard: TextInputType.number,
               ),
             ),
