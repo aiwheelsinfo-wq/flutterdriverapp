@@ -118,6 +118,14 @@ class _DriverFormPageState extends State<DriverFormPage> {
       _controllers['license_type']!.text = (d['license_type'] ?? '').toString();
       _controllers['adhaar_card_no']!.text = (d['adhaar_card_no'] ?? d['adhaar_number'] ?? '').toString();
       _controllers['pan_card_no']!.text = (d['pan_card_no'] ?? d['pan_number'] ?? '').toString();
+
+      newDriverForm = true;
+      isPhoneLocked = true;
+      if (_controllers['license_no']!.text.isNotEmpty) {
+        isDlVerifiedSuccess = true;
+        dlVerificationStatusMessage = "✅ DRIVER RECORD LOADED: ${_controllers['full_name']!.text}";
+        dlVerificationStatusColor = Colors.green;
+      }
     }
   }
 
