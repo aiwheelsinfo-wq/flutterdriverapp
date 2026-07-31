@@ -19,7 +19,8 @@ class UpperCaseTextFormatter extends TextInputFormatter {
 }
 
 class CarFormPage extends StatefulWidget {
-  const CarFormPage({super.key});
+  final Map<String, dynamic>? carData;
+  const CarFormPage({super.key, this.carData});
 
   @override
   _CarFormPageState createState() => _CarFormPageState();
@@ -131,6 +132,35 @@ class _CarFormPageState extends State<CarFormPage> {
       'fitness_certificate_doi': TextEditingController(),
       'fitness_certificate_doe': TextEditingController(),
     };
+
+    if (widget.carData != null) {
+      final c = widget.carData!;
+      _controllers['vehicle_id']!.text = (c['vehicle_id'] ?? c['vehicle_number'] ?? '').toString();
+      _controllers['vehicle_type']!.text = (c['vehicle_type'] ?? '').toString();
+      _controllers['vehicle_name']!.text = (c['vehicle_name'] ?? '').toString();
+      _controllers['license_no']!.text = (c['license_no'] ?? '').toString();
+      _controllers['license_doe']!.text = (c['license_doe'] ?? '').toString();
+      _controllers['license_type']!.text = (c['license_type'] ?? '').toString();
+      _controllers['rc_no']!.text = (c['rc_no'] ?? c['vehicle_number'] ?? '').toString();
+      _controllers['rc_name']!.text = (c['rc_name'] ?? c['owner_name'] ?? '').toString();
+      _controllers['rc_manufecture_date']!.text = (c['rc_manufecture_date'] ?? c['rc_expiry'] ?? '').toString();
+      _controllers['insurance_number']!.text = (c['insurance_number'] ?? c['insurnce_number'] ?? '').toString();
+      _controllers['insurance_doe']!.text = (c['insurance_doe'] ?? c['insurnce_doe'] ?? '').toString();
+      _controllers['puc_doi']!.text = (c['puc_doi'] ?? '').toString();
+      _controllers['puc_doe']!.text = (c['puc_doe'] ?? '').toString();
+      _controllers['texi_permit_no']!.text = (c['texi_permit_no'] ?? '').toString();
+      _controllers['texi_permit_doi']!.text = (c['texi_permit_doi'] ?? '').toString();
+      _controllers['texi_permit_doe']!.text = (c['texi_permit_doe'] ?? '').toString();
+      _controllers['fitness_certificate_no']!.text = (c['fitness_certificate_no'] ?? '').toString();
+      _controllers['fitness_certificate_doi']!.text = (c['fitness_certificate_doi'] ?? '').toString();
+      _controllers['fitness_certificate_doe']!.text = (c['fitness_certificate_doe'] ?? '').toString();
+
+      if (_controllers['rc_no']!.text.isNotEmpty) {
+        isRcVerifiedSuccess = true;
+        rcVerificationStatusMessage = "✅ VEHICLE RECORD LOADED: ${_controllers['vehicle_name']!.text}";
+        rcVerificationStatusColor = Colors.green;
+      }
+    }
   }
 
   Future<void> fetchDriverDetails() async {

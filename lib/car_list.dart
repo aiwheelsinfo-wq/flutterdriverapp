@@ -576,6 +576,24 @@ class _CarListPageState extends State<CarListPage> {
         children: [
           Expanded(
             child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CarFormPage(carData: Map<String, dynamic>.from(car)),
+                  ),
+                ).then((_) => fetchCars());
+              },
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text("Edit Vehicle"),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.blueAccent,
+                  side: const BorderSide(color: Colors.blueAccent)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
               onPressed: () => _showDeleteConfirmation(car["id"]),
               icon: const Icon(Icons.delete_sweep, size: 16),
               label: const Text("Delete"),
