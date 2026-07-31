@@ -104,27 +104,14 @@ class _DriverFormPageState extends State<DriverFormPage> {
 
     if (widget.driverData != null) {
       final d = widget.driverData!;
-      _controllers['phone_number']!.text = (d['phone_number'] ?? d['driver_id'] ?? '').toString();
-      _controllers['driver_code']!.text = (d['driver_code'] ?? '').toString();
-      _controllers['full_name']!.text = (d['full_name'] ?? '').toString();
-      _controllers['email']!.text = (d['email'] ?? '').toString();
-      _controllers['driver_address']!.text = (d['driver_address'] ?? '').toString();
-      _controllers['driver_city']!.text = (d['driver_city'] ?? '').toString();
-      _controllers['date_of_birth']!.text = (d['date_of_birth'] ?? d['dob'] ?? '').toString();
-      _controllers['pin_code']!.text = (d['pin_code'] ?? d['pincode'] ?? '').toString();
-      _controllers['license_no']!.text = (d['license_no'] ?? '').toString();
-      _controllers['license_doi']!.text = (d['license_doi'] ?? '').toString();
-      _controllers['license_doe']!.text = (d['license_doe'] ?? '').toString();
-      _controllers['license_type']!.text = (d['license_type'] ?? '').toString();
-      _controllers['adhaar_card_no']!.text = (d['adhaar_card_no'] ?? d['adhaar_number'] ?? '').toString();
-      _controllers['pan_card_no']!.text = (d['pan_card_no'] ?? d['pan_number'] ?? '').toString();
-
+      final phone = (d['phone_number'] ?? d['driver_id'] ?? '').toString();
+      _controllers['phone_number']!.text = phone;
       newDriverForm = true;
       isPhoneLocked = true;
-      if (_controllers['license_no']!.text.isNotEmpty) {
-        isDlVerifiedSuccess = true;
-        dlVerificationStatusMessage = "✅ DRIVER RECORD LOADED: ${_controllers['full_name']!.text}";
-        dlVerificationStatusColor = Colors.green;
+
+      // Automatically fetch full driver details from backend for editing
+      if (phone.isNotEmpty) {
+        fetchDriverDetails(phone);
       }
     }
   }
