@@ -150,16 +150,62 @@ class _CarFormPageState extends State<CarFormPage> {
       _controllers['rc_no']!.text = (c['rc_no'] ?? c['vehicle_number'] ?? '').toString();
       _controllers['rc_name']!.text = (c['rc_name'] ?? c['owner_name'] ?? '').toString();
       _controllers['rc_manufecture_date']!.text = (c['rc_manufecture_date'] ?? c['rc_expiry'] ?? '').toString();
-      _controllers['insurance_number']!.text = (c['insurance_number'] ?? c['insurnce_number'] ?? '').toString();
-      _controllers['insurance_doe']!.text = (c['insurance_doe'] ?? c['insurnce_doe'] ?? '').toString();
+      _controllers['insurance_number']!.text = (c['insurance_number'] ?? c['insurance_policy_number'] ?? c['insurnce_number'] ?? '').toString();
+
+      final rawInsDoe = (c['insurance_doe'] ?? c['insurance_upto'] ?? c['insurnce_doe'] ?? '').toString();
+      if (rawInsDoe.isNotEmpty) {
+        try {
+          final pDate = DateTime.parse(rawInsDoe);
+          _controllers['insurance_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+        } catch (e) {
+          _controllers['insurance_doe']!.text = rawInsDoe;
+        }
+      }
+
       _controllers['puc_doi']!.text = (c['puc_doi'] ?? '').toString();
       _controllers['puc_doe']!.text = (c['puc_doe'] ?? '').toString();
-      _controllers['texi_permit_no']!.text = (c['texi_permit_no'] ?? '').toString();
-      _controllers['texi_permit_doi']!.text = (c['texi_permit_doi'] ?? '').toString();
-      _controllers['texi_permit_doe']!.text = (c['texi_permit_doe'] ?? '').toString();
+      _controllers['texi_permit_no']!.text = (c['texi_permit_no'] ?? c['permit_number'] ?? '').toString();
+
+      final rawPermitDoe = (c['texi_permit_doe'] ?? c['permit_valid_upto'] ?? c['permit_upto'] ?? '').toString();
+      if (rawPermitDoe.isNotEmpty) {
+        try {
+          final pDate = DateTime.parse(rawPermitDoe);
+          _controllers['texi_permit_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+        } catch (e) {
+          _controllers['texi_permit_doe']!.text = rawPermitDoe;
+        }
+      }
+
       _controllers['fitness_certificate_no']!.text = (c['fitness_certificate_no'] ?? '').toString();
-      _controllers['fitness_certificate_doi']!.text = (c['fitness_certificate_doi'] ?? '').toString();
-      _controllers['fitness_certificate_doe']!.text = (c['fitness_certificate_doe'] ?? '').toString();
+      final rawFitDoe = (c['fitness_certificate_doe'] ?? c['fit_up_to'] ?? '').toString();
+      if (rawFitDoe.isNotEmpty) {
+        try {
+          final pDate = DateTime.parse(rawFitDoe);
+          _controllers['fitness_certificate_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+        } catch (e) {
+          _controllers['fitness_certificate_doe']!.text = rawFitDoe;
+        }
+      }
+
+      if (c['fuel_type'] != null) {
+        final fType = c['fuel_type'].toString().toUpperCase();
+        for (String f in fuelTypes) {
+          if (f.toUpperCase().contains(fType) || fType.contains(f.toUpperCase())) {
+            _selectedFuelItem = f;
+            break;
+          }
+        }
+      }
+
+      if (c['plate_color'] != null) {
+        final pColor = c['plate_color'].toString().toUpperCase();
+        for (String p in plateColors) {
+          if (p.toUpperCase().contains(pColor) || pColor.contains(p.toUpperCase())) {
+            _selectedPlateColor = p;
+            break;
+          }
+        }
+      }
 
       if (_controllers['rc_no']!.text.isNotEmpty) {
         isRcVerifiedSuccess = true;
