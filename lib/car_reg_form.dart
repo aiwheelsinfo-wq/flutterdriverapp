@@ -735,6 +735,8 @@ class _CarFormPageState extends State<CarFormPage> {
   }
 
   Widget _buildMainForm() {
+    bool isShowAllFields = isRcVerifiedSuccess || widget.carData != null;
+
     return Form(
       key: _formKey,
       child: Column(
@@ -748,105 +750,108 @@ class _CarFormPageState extends State<CarFormPage> {
               readOnly: isRcVerifiedSuccess && _controllers['rc_no']!.text.isNotEmpty,
               hint: "Ex: KL73A1234"),
           _buildVerifyRcButton(),
-          _buildField(
-              label: "Owner Name (As on RC)",
-              apiKey: "rc_name",
-              readOnly: isRcVerifiedSuccess && _controllers['rc_name']!.text.isNotEmpty,
-              hint: "Ex: RAJESH KUMAR"),
-          _buildField(
-              label: "RC Expiry Date",
-              apiKey: "rc_manufecture_date",
-              readOnly: isRcVerifiedSuccess && _controllers['rc_manufecture_date']!.text.isNotEmpty,
-              isDate: true),
 
-          // ---------------- 2. VEHICLE BASICS ----------------
-          _buildSectionHeader("Vehicle Basics", Icons.directions_car),
-          _buildField(
-              label: "Vehicle Reg Number",
-              apiKey: "vehicle_id",
-              readOnly: isRcVerifiedSuccess && _controllers['vehicle_id']!.text.isNotEmpty,
-              hint: "Ex: KL 73 A 1234"),
-          Row(
-            children: [
-              Expanded(
-                child: _buildDropdown(
-                  label: "Vehicle Type",
-                  items: _carCategories,
-                  value: _selectedCarCategory,
-                  onChanged: (v) {
-                    setState(() {
-                      _selectedCarCategory = v;
-                      _controllers['vehicle_type']!.text = v ?? '';
-                    });
-                  },
+          if (isShowAllFields) ...[
+            _buildField(
+                label: "Owner Name (As on RC)",
+                apiKey: "rc_name",
+                readOnly: isRcVerifiedSuccess && _controllers['rc_name']!.text.isNotEmpty,
+                hint: "Ex: RAJESH KUMAR"),
+            _buildField(
+                label: "RC Expiry Date",
+                apiKey: "rc_manufecture_date",
+                readOnly: isRcVerifiedSuccess && _controllers['rc_manufecture_date']!.text.isNotEmpty,
+                isDate: true),
+
+            // ---------------- 2. VEHICLE BASICS ----------------
+            _buildSectionHeader("Vehicle Basics", Icons.directions_car),
+            _buildField(
+                label: "Vehicle Reg Number",
+                apiKey: "vehicle_id",
+                readOnly: isRcVerifiedSuccess && _controllers['vehicle_id']!.text.isNotEmpty,
+                hint: "Ex: KL 73 A 1234"),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDropdown(
+                    label: "Vehicle Type",
+                    items: _carCategories,
+                    value: _selectedCarCategory,
+                    onChanged: (v) {
+                      setState(() {
+                        _selectedCarCategory = v;
+                        _controllers['vehicle_type']!.text = v ?? '';
+                      });
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: _buildField(
-                      label: "Model Name",
-                      apiKey: "vehicle_name",
-                      readOnly: isRcVerifiedSuccess && _controllers['vehicle_name']!.text.isNotEmpty,
-                      hint: "Ex: SWIFT DZIRE")),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: _buildField(
+                        label: "Model Name",
+                        apiKey: "vehicle_name",
+                        readOnly: isRcVerifiedSuccess && _controllers['vehicle_name']!.text.isNotEmpty,
+                        hint: "Ex: SWIFT DZIRE")),
+              ],
+            ),
+            _buildDropdown(
+                label: "Fuel Type",
+                items: fuelTypes,
+                value: _selectedFuelItem,
+                onChanged: (v) => setState(() => _selectedFuelItem = v)),
+            _buildDropdown(
+                label: "Number Plate Color",
+                items: plateColors,
+                value: _selectedPlateColor,
+                onChanged: (v) => setState(() => _selectedPlateColor = v)),
+
+            // ---------------- 3. INSURANCE & PUC ----------------
+            _buildSectionHeader("Insurance & PUC", Icons.verified_user),
+            _buildField(
+                label: "Insurance Policy No",
+                apiKey: "insurance_number",
+                readOnly: isRcVerifiedSuccess && _controllers['insurance_number']!.text.isNotEmpty,
+                hint: "Ex: POL1234567"),
+            _buildField(
+                label: "Insurance Expiry",
+                apiKey: "insurance_doe",
+                readOnly: isRcVerifiedSuccess && _controllers['insurance_doe']!.text.isNotEmpty,
+                isDate: true),
+
+            // Conditional Yellow Plate Sections
+            if (_selectedPlateColor == 'YELLOW PLATE') ...[
+              _buildSectionHeader("Taxi Permit", Icons.business_center),
+              _buildField(
+                  label: "Permit Number",
+                  apiKey: "texi_permit_no",
+                  isRequired: false,
+                  readOnly: isRcVerifiedSuccess && _controllers['texi_permit_no']!.text.isNotEmpty,
+                  hint: "Ex: PMT998877"),
+              _buildField(
+                  label: "Permit DOE",
+                  apiKey: "texi_permit_doe",
+                  isDate: true,
+                  readOnly: isRcVerifiedSuccess && _controllers['texi_permit_doe']!.text.isNotEmpty,
+                  isRequired: false),
+              _buildSectionHeader("Fitness Certificate", Icons.health_and_safety),
+              _buildField(
+                  label: "Fitness Cert Number",
+                  apiKey: "fitness_certificate_no",
+                  isRequired: false,
+                  hint: "Ex: FIT112233"),
+              _buildField(
+                  label: "Fitness Expiry Date",
+                  apiKey: "fitness_certificate_doe",
+                  isDate: true,
+                  readOnly: isRcVerifiedSuccess && _controllers['fitness_certificate_doe']!.text.isNotEmpty,
+                  isRequired: false),
             ],
-          ),
-          _buildDropdown(
-              label: "Fuel Type",
-              items: fuelTypes,
-              value: _selectedFuelItem,
-              onChanged: (v) => setState(() => _selectedFuelItem = v)),
-          _buildDropdown(
-              label: "Number Plate Color",
-              items: plateColors,
-              value: _selectedPlateColor,
-              onChanged: (v) => setState(() => _selectedPlateColor = v)),
 
-          // ---------------- 3. INSURANCE & PUC ----------------
-          _buildSectionHeader("Insurance & PUC", Icons.verified_user),
-          _buildField(
-              label: "Insurance Policy No",
-              apiKey: "insurance_number",
-              readOnly: isRcVerifiedSuccess && _controllers['insurance_number']!.text.isNotEmpty,
-              hint: "Ex: POL1234567"),
-          _buildField(
-              label: "Insurance Expiry",
-              apiKey: "insurance_doe",
-              readOnly: isRcVerifiedSuccess && _controllers['insurance_doe']!.text.isNotEmpty,
-              isDate: true),
-
-          // Conditional Yellow Plate Sections
-          if (_selectedPlateColor == 'YELLOW PLATE') ...[
-            _buildSectionHeader("Taxi Permit", Icons.business_center),
-            _buildField(
-                label: "Permit Number",
-                apiKey: "texi_permit_no",
-                isRequired: false,
-                readOnly: isRcVerifiedSuccess && _controllers['texi_permit_no']!.text.isNotEmpty,
-                hint: "Ex: PMT998877"),
-            _buildField(
-                label: "Permit DOE",
-                apiKey: "texi_permit_doe",
-                isDate: true,
-                readOnly: isRcVerifiedSuccess && _controllers['texi_permit_doe']!.text.isNotEmpty,
-                isRequired: false),
-            _buildSectionHeader("Fitness Certificate", Icons.health_and_safety),
-            _buildField(
-                label: "Fitness Cert Number",
-                apiKey: "fitness_certificate_no",
-                isRequired: false,
-                hint: "Ex: FIT112233"),
-            _buildField(
-                label: "Fitness Expiry Date",
-                apiKey: "fitness_certificate_doe",
-                isDate: true,
-                readOnly: isRcVerifiedSuccess && _controllers['fitness_certificate_doe']!.text.isNotEmpty,
-                isRequired: false),
+            const SizedBox(height: 30),
+            _buildAgreementSection(),
+            const SizedBox(height: 25),
+            _buildSubmitButton(),
           ],
-
-          const SizedBox(height: 30),
-          _buildAgreementSection(),
-          const SizedBox(height: 25),
-          _buildSubmitButton(),
         ],
       ),
     );
