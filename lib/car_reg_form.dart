@@ -754,23 +754,6 @@ class _CarFormPageState extends State<CarFormPage> {
               apiKey: "insurance_doe",
               readOnly: isRcVerifiedSuccess && _controllers['insurance_doe']!.text.isNotEmpty,
               isDate: true),
-          Row(
-            children: [
-              Expanded(
-                  child: _buildField(
-                      label: "PUC DOI",
-                      apiKey: "puc_doi",
-                      isDate: true,
-                      isRequired: false)),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: _buildField(
-                      label: "PUC DOE",
-                      apiKey: "puc_doe",
-                      isDate: true,
-                      isRequired: false)),
-            ],
-          ),
 
           // Conditional Yellow Plate Sections
           if (_selectedPlateColor == 'YELLOW PLATE') ...[
@@ -781,24 +764,12 @@ class _CarFormPageState extends State<CarFormPage> {
                 isRequired: false,
                 readOnly: isRcVerifiedSuccess && _controllers['texi_permit_no']!.text.isNotEmpty,
                 hint: "Ex: PMT998877"),
-            Row(
-              children: [
-                Expanded(
-                    child: _buildField(
-                        label: "Permit DOI",
-                        apiKey: "texi_permit_doi",
-                        isDate: true,
-                        isRequired: false)),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _buildField(
-                        label: "Permit DOE",
-                        apiKey: "texi_permit_doe",
-                        isDate: true,
-                        readOnly: isRcVerifiedSuccess && _controllers['texi_permit_doe']!.text.isNotEmpty,
-                        isRequired: false)),
-              ],
-            ),
+            _buildField(
+                label: "Permit DOE",
+                apiKey: "texi_permit_doe",
+                isDate: true,
+                readOnly: isRcVerifiedSuccess && _controllers['texi_permit_doe']!.text.isNotEmpty,
+                isRequired: false),
             _buildSectionHeader("Fitness Certificate", Icons.health_and_safety),
             _buildField(
                 label: "Fitness Cert Number",
@@ -811,23 +782,6 @@ class _CarFormPageState extends State<CarFormPage> {
                 isDate: true,
                 readOnly: isRcVerifiedSuccess && _controllers['fitness_certificate_doe']!.text.isNotEmpty,
                 isRequired: false),
-            Row(
-              children: [
-                Expanded(
-                    child: _buildField(
-                        label: "Fitness DOI",
-                        apiKey: "fitness_certificate_doi",
-                        isDate: true,
-                        isRequired: false)),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _buildField(
-                        label: "Fitness DOE",
-                        apiKey: "fitness_certificate_doe",
-                        isDate: true,
-                        isRequired: false)),
-              ],
-            ),
           ],
 
           const SizedBox(height: 30),
