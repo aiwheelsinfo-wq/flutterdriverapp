@@ -89,12 +89,6 @@ class _CarFormPageState extends State<CarFormPage> {
     _initializeControllers();
     fetchDriverDetails();
     fetchCarCategories();
-
-    if (widget.carData != null && _controllers['rc_no']!.text.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _onVerifyRc();
-      });
-    }
   }
 
   Future<void> fetchCarCategories() async {
