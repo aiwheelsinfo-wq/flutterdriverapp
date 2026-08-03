@@ -504,9 +504,12 @@ class _CarFormPageState extends State<CarFormPage> {
 
           // Auto-detect Number Plate Color from RTO data
           final String pType = (details['permit_type'] ?? '').toString().toUpperCase();
+          final String pNoStr = permitNo.toString().trim();
+          final bool hasValidPermit = pNoStr.isNotEmpty && pNoStr != '0' && pNoStr.toLowerCase() != 'null';
+
           if (fuelType.contains('ELECTRIC') || fuelType.contains('EV')) {
             _selectedPlateColor = 'GREEN PLATE';
-          } else if (permitNo.isNotEmpty || pType.contains('CAB') || pType.contains('PERMIT') || catString.contains('MOTOR CAB') || catString.contains('TAXI')) {
+          } else if (hasValidPermit || pType.contains('CAB') || pType.contains('PERMIT') || catString.contains('MOTOR CAB') || catString.contains('TAXI')) {
             _selectedPlateColor = 'YELLOW PLATE';
           } else {
             _selectedPlateColor = 'WHITE PLATE';
