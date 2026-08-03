@@ -385,6 +385,7 @@ class _CarFormPageState extends State<CarFormPage> {
     required List<String> items,
     required String? value,
     required Function(String?) onChanged,
+    bool readOnly = false,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -395,7 +396,7 @@ class _CarFormPageState extends State<CarFormPage> {
           labelText: label.toUpperCase(),
           labelStyle: TextStyle(color: charcoal.withOpacity(0.6), fontSize: 12),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey.shade300)),
@@ -404,7 +405,7 @@ class _CarFormPageState extends State<CarFormPage> {
             .map((e) => DropdownMenuItem(
                 value: e, child: Text(e, style: const TextStyle(fontSize: 13))))
             .toList(),
-        onChanged: onChanged,
+        onChanged: readOnly ? null : onChanged,
         validator: (v) => v == null ? "REQUIRED" : null,
       ),
     );
@@ -798,11 +799,13 @@ class _CarFormPageState extends State<CarFormPage> {
                 label: "Fuel Type",
                 items: fuelTypes,
                 value: _selectedFuelItem,
+                readOnly: isRcVerifiedSuccess && _selectedFuelItem != null,
                 onChanged: (v) => setState(() => _selectedFuelItem = v)),
             _buildDropdown(
                 label: "Number Plate Color",
                 items: plateColors,
                 value: _selectedPlateColor,
+                readOnly: isRcVerifiedSuccess && _selectedPlateColor != null,
                 onChanged: (v) => setState(() => _selectedPlateColor = v)),
 
             // ---------------- 3. INSURANCE & PUC ----------------
