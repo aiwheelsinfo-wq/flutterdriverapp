@@ -143,7 +143,17 @@ class _CarFormPageState extends State<CarFormPage> {
       _controllers['license_type']!.text = (c['license_type'] ?? '').toString();
       _controllers['rc_no']!.text = (c['rc_no'] ?? c['vehicle_number'] ?? '').toString();
       _controllers['rc_name']!.text = (c['rc_name'] ?? c['owner_name'] ?? '').toString();
-      _controllers['rc_manufecture_date']!.text = (c['rc_manufecture_date'] ?? c['rc_expiry'] ?? '').toString();
+
+      final rawRcDoe = (c['rc_manufecture_date'] ?? c['rc_expiry'] ?? c['fit_up_to'] ?? '').toString();
+      if (rawRcDoe.isNotEmpty) {
+        try {
+          final pDate = DateTime.parse(rawRcDoe);
+          _controllers['rc_manufecture_date']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+        } catch (e) {
+          _controllers['rc_manufecture_date']!.text = rawRcDoe;
+        }
+      }
+
       _controllers['insurance_number']!.text = (c['insurance_number'] ?? c['insurance_policy_number'] ?? c['insurnce_number'] ?? '').toString();
 
       final rawInsDoe = (c['insurance_doe'] ?? c['insurance_upto'] ?? c['insurnce_doe'] ?? '').toString();
@@ -334,7 +344,6 @@ class _CarFormPageState extends State<CarFormPage> {
       child: TextFormField(
         controller: _controllers[apiKey],
         readOnly: readOnly || isDate,
-        enabled: !readOnly,
         onTap: (isDate && !readOnly) ? () => _pickDate(apiKey) : null,
         textCapitalization: TextCapitalization.characters,
         inputFormatters: [UpperCaseTextFormatter()],
