@@ -68,8 +68,9 @@ class _StartingKmInputPageState extends State<StartingKmInputPage> {
     final km = _kmController.text.trim();
 
     // Logic for skipping KM input for specific trip types
+    final String typeLower = widget.triptype.toLowerCase();
     final bool isSkipKm =
-        widget.triptype == "One-way" || widget.triptype == "Local-taxi";
+        typeLower == "one-way" || typeLower == "local-taxi" || typeLower == "local taxi";
 
     if (!isSkipKm) {
       if (km.isEmpty || int.tryParse(km) == null || int.parse(km) < 0) {
