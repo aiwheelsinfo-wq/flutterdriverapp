@@ -535,12 +535,12 @@ class _CarFormPageState extends State<CarFormPage> {
           _controllers['texi_permit_doe']!.text = permitUpto;
         }
       }
-      final pucNumber = (details['pucc_number'] ?? details['puc_number'] ?? "").toString();
-      final pucUpto = (details['pucc_upto'] ?? details['puc_doe'] ?? "").toString();
-      if (pucNumber.isNotEmpty && _controllers.containsKey('puc_doi')) {
+      final pucNumber = (details['pucc_number'] ?? details['puc_number'] ?? details['pucc_no'] ?? details['puc_no'] ?? details['puc_doi'] ?? "").toString().trim();
+      final pucUpto = (details['pucc_upto'] ?? details['puc_upto'] ?? details['puc_doe'] ?? "").toString().trim();
+      if (pucNumber.isNotEmpty) {
         _controllers['puc_doi']!.text = pucNumber;
       }
-      if (pucUpto.isNotEmpty && _controllers.containsKey('puc_doe')) {
+      if (pucUpto.isNotEmpty) {
         try {
           final pDate = DateTime.parse(pucUpto);
           _controllers['puc_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
