@@ -7,6 +7,9 @@ import 'checkAndRoot.dart';
 import 'api_config.dart';
 import 'settlements_page.dart';
 import 'bank_details_page.dart';
+import 'booking_list.dart';
+import 'car_list.dart';
+import 'driver_list.dart';
 
 
 class OwnerProfileScreen extends StatefulWidget {
@@ -97,6 +100,7 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
           : ownerData == null
               ? _buildErrorState()
               : _buildProfileBody(),
+      bottomNavigationBar: _buildModernBottomNav(),
     );
   }
 
@@ -379,6 +383,76 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
             child: const Text("Logout", style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildModernBottomNav() {
+    final phone = ownerData?['phone_number']?.toString() ?? '';
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      height: 70,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(35),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 10))
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _navIcon(0, Icons.dashboard_rounded, () {
+            if (phone.isNotEmpty) {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => BookingListPage(phoneNumber: phone)),
+                (route) => false,
+              );
+            } else {
+              Navigator.popUntil(context, (route) => route.isFirst);
+            }
+          }),
+          _navIcon(1, Icons.directions_car_filled_rounded, () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const CarListPage()),
+            );
+          }),
+          _navIcon(2, Icons.person_add_rounded, () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const DriverListPage()),
+            );
+          }),
+          _navIcon(3, Icons.account_balance_wallet_rounded, () {
+            if (phone.isNotEmpty) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => SettlementsPage(phoneNumber: phone)),
+              );
+            }
+          }),
+          _navIcon(4, Icons.account_circle_rounded, () {}),
+        ],
+      ),
+    );
+  }
+
+  Widget _navIcon(int index, IconData icon, VoidCallback onTap) {
+    bool isSel = index == 4; // Index 4 is Profile Screen (Selected!)
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+            color: isSel ? primaryAmber : Colors.transparent,
+            shape: BoxShape.circle),
+        child: Icon(icon, color: isSel ? Colors.black : Colors.white38, size: 26),
       ),
     );
   }

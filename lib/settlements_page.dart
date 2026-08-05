@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'api_config.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'booking_list.dart';
+import 'car_list.dart';
+import 'driver_list.dart';
+import 'owner_account.dart';
 
 class SettlementsPage extends StatefulWidget {
   final String phoneNumber;
@@ -175,6 +180,7 @@ class _SettlementsPageState extends State<SettlementsPage> {
           : errorMessage != null
               ? _buildErrorState()
               : _buildMainContent(),
+      bottomNavigationBar: _buildModernBottomNav(),
     );
   }
 
@@ -849,6 +855,65 @@ class _SettlementsPageState extends State<SettlementsPage> {
             ),
           ),
         ),
+  Widget _buildModernBottomNav() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      height: 70,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(35),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 10))
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _navIcon(0, Icons.dashboard_rounded, () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => BookingListPage(phoneNumber: widget.phoneNumber)),
+              (route) => false,
+            );
+          }),
+          _navIcon(1, Icons.directions_car_filled_rounded, () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const CarListPage()),
+            );
+          }),
+          _navIcon(2, Icons.person_add_rounded, () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const DriverListPage()),
+            );
+          }),
+          _navIcon(3, Icons.account_balance_wallet_rounded, () {}),
+          _navIcon(4, Icons.account_circle_rounded, () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const OwnerProfileScreen()),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _navIcon(int index, IconData icon, VoidCallback onTap) {
+    bool isSel = index == 3; // Index 3 is Settlements Page (Selected!)
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+            color: isSel ? primaryAmber : Colors.transparent,
+            shape: BoxShape.circle),
+        child: Icon(icon, color: isSel ? Colors.black : Colors.white38, size: 26),
       ),
     );
   }
