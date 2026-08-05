@@ -49,6 +49,8 @@ class ApiConfig {
   static const String updateLocation = "$driverPath/update_location.php";
   static const String verifyDl = "$driverPath/verify_dl.php";
   static const String verifyRc = "$driverPath/verify_rc.php";
+  static const String sendRcOtp = "$driverPath/send_rc_otp.php";
+  static const String verifyRcOtp = "$driverPath/verify_rc_otp.php";
 
   // Assets
   static const String add1Webp = "$driverPath/add/add1.webp";

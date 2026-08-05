@@ -424,10 +424,218 @@ class _CarFormPageState extends State<CarFormPage> {
       ),
     );
     if (picked != null) {
-      setState(() {
+        if (mounted) {
         _controllers[key]!.text = DateFormat('dd-MM-yyyy').format(picked);
       });
     }
+  }
+
+  void _applyRcDetails(Map<String, dynamic> details, String rcNo) {
+    final ownerName = details['owner_name'] ?? "";
+    final makerModel = details['maker_model'] ?? "";
+    final makerDesc = details['maker_description'] ?? "";
+    final fuelType = (details['fuel_type'] ?? "").toString().toUpperCase();
+    final fitUpTo = details['fit_up_to'] ?? "";
+    final insNumber = details['insurance_policy_number'] ?? "";
+    final insUpto = details['insurance_upto'] ?? "";
+    final permitNo = details['permit_number'] ?? "";
+    final permitUpto = details['permit_valid_upto'] ?? "";
+
+    setState(() {
+      isVerifyingRc = false;
+      isRcVerifiedSuccess = true;
+      rcVerificationStatusMessage = "✅ VEHICLE RC VERIFIED: $ownerName ($makerDesc $makerModel)";
+      rcVerificationStatusColor = Colors.green;
+
+      if (_controllers['vehicle_id']!.text.isEmpty) {
+        _controllers['vehicle_id']!.text = rcNo;
+      }
+      if (ownerName.isNotEmpty) {
+        _controllers['rc_name']!.text = ownerName;
+      }
+      final fullModel = "$makerDesc $makerModel".trim();
+      if (fullModel.isNotEmpty) {
+        _controllers['vehicle_name']!.text = fullModel;
+      }
+      if (fuelType.isNotEmpty) {
+        for (String f in fuelTypes) {
+          if (f.toUpperCase().contains(fuelType) || fuelType.contains(f.toUpperCase())) {
+            _selectedFuelItem = f;
+            break;
+          }
+        }
+      }
+      final catString = (details['vehicle_category_description'] ?? details['vehicle_category'] ?? makerModel).toString().toUpperCase();
+      for (String cat in _carCategories) {
+        if (catString.contains(cat)) {
+          _selectedCarCategory = cat;
+          _controllers['vehicle_type']!.text = cat;
+          break;
+        }
+      }
+
+      // Auto-detect Number Plate Color from RTO data
+      final String pType = (details['permit_type'] ?? '').toString().toUpperCase();
+      final String pNoStr = permitNo.toString().trim();
+      final bool hasValidPermit = pNoStr.isNotEmpty && pNoStr != '0' && pNoStr.toLowerCase() != 'null';
+
+      if (fuelType.contains('ELECTRIC') || fuelType.contains('EV')) {
+        _selectedPlateColor = 'GREEN PLATE';
+      } else if (hasValidPermit || pType.contains('CAB') || pType.contains('PERMIT') || catString.contains('MOTOR CAB') || catString.contains('TAXI')) {
+        _selectedPlateColor = 'YELLOW PLATE';
+      } else {
+        _selectedPlateColor = 'WHITE PLATE';
+      }
+      if (insNumber.isNotEmpty) {
+        _controllers['insurance_number']!.text = insNumber;
+      }
+      if (insUpto.isNotEmpty) {
+        try {
+          final pDate = DateTime.parse(insUpto);
+          _controllers['insurance_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+        } catch (e) {
+          _controllers['insurance_doe']!.text = insUpto;
+        }
+      }
+      if (fitUpTo.isNotEmpty) {
+        try {
+          final pDate = DateTime.parse(fitUpTo);
+          final formatted = DateFormat('dd-MM-yyyy').format(pDate);
+          _controllers['fitness_certificate_doe']!.text = formatted;
+          _controllers['rc_manufecture_date']!.text = formatted;
+        } catch (e) {
+          _controllers['fitness_certificate_doe']!.text = fitUpTo;
+          _controllers['rc_manufecture_date']!.text = fitUpTo;
+        }
+      }
+      if (permitNo.isNotEmpty) {
+        _controllers['texi_permit_no']!.text = permitNo;
+      }
+      if (permitUpto.isNotEmpty) {
+        try {
+          final pDate = DateTime.parse(permitUpto);
+          _controllers['texi_permit_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+        } catch (e) {
+          _controllers['texi_permit_doe']!.text = permitUpto;
+        }
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("✅ Vehicle RC Verified for $ownerName! Auto-populated vehicle specs."),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Future<void> _showOtpDialog(String rcNo, String clientId, String mobileNumber) async {
+    final TextEditingController otpController = TextEditingController();
+    bool isSubmittingOtp = false;
+    String? otpError;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.shield, color: primaryAmber),
+                  SizedBox(width: 8),
+                  Text("Verify RC OTP", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "An OTP has been sent by RTO to the vehicle owner's mobile number ($mobileNumber).",
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: otpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: InputDecoration(
+                      labelText: "Enter 6-Digit OTP",
+                      hintText: "123456",
+                      errorText: otpError,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmittingOtp ? null : () => Navigator.pop(dialogContext),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryAmber,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: isSubmittingOtp
+                      ? null
+                      : () async {
+                          final otp = otpController.text.trim();
+                          if (otp.length < 4) {
+                            setDialogState(() => otpError = "Enter valid 6-digit OTP");
+                            return;
+                          }
+                          setDialogState(() {
+                            isSubmittingOtp = true;
+                            otpError = null;
+                          });
+
+                          try {
+                            final response = await http.post(
+                              Uri.parse(ApiConfig.verifyRcOtp),
+                              headers: {'Content-Type': 'application/json'},
+                              body: jsonEncode({
+                                'rc_number': rcNo,
+                                'client_id': clientId,
+                                'otp': otp,
+                              }),
+                            );
+
+                            final resData = jsonDecode(response.body);
+                            if (response.statusCode == 200 && resData['success'] == true) {
+                              Navigator.pop(dialogContext);
+                              _applyRcDetails(resData['data'] ?? {}, rcNo);
+                            } else {
+                              setDialogState(() {
+                                isSubmittingOtp = false;
+                                otpError = resData['message'] ?? "OTP Verification failed";
+                              });
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              isSubmittingOtp = false;
+                              otpError = "Connection error: $e";
+                            });
+                          }
+                        },
+                  child: isSubmittingOtp
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text("SUBMIT OTP", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _onVerifyRc() async {
@@ -450,7 +658,7 @@ class _CarFormPageState extends State<CarFormPage> {
 
     try {
       final response = await http.post(
-        Uri.parse(ApiConfig.verifyRc),
+        Uri.parse(ApiConfig.sendRcOtp),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'rc_number': rcNo}),
       );
@@ -458,103 +666,16 @@ class _CarFormPageState extends State<CarFormPage> {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
-        final details = data['data'] ?? {};
-        final ownerName = details['owner_name'] ?? "";
-        final makerModel = details['maker_model'] ?? "";
-        final makerDesc = details['maker_description'] ?? "";
-        final fuelType = (details['fuel_type'] ?? "").toString().toUpperCase();
-        final fitUpTo = details['fit_up_to'] ?? "";
-        final insNumber = details['insurance_policy_number'] ?? "";
-        final insUpto = details['insurance_upto'] ?? "";
-        final permitNo = details['permit_number'] ?? "";
-        final permitUpto = details['permit_valid_upto'] ?? "";
-
-        setState(() {
-          isVerifyingRc = false;
-          isRcVerifiedSuccess = true;
-          rcVerificationStatusMessage = "✅ VEHICLE RC VERIFIED: $ownerName ($makerDesc $makerModel)";
-          rcVerificationStatusColor = Colors.green;
-
-          if (_controllers['vehicle_id']!.text.isEmpty) {
-            _controllers['vehicle_id']!.text = rcNo;
-          }
-          if (ownerName.isNotEmpty) {
-            _controllers['rc_name']!.text = ownerName;
-          }
-          final fullModel = "$makerDesc $makerModel".trim();
-          if (fullModel.isNotEmpty) {
-            _controllers['vehicle_name']!.text = fullModel;
-          }
-          if (fuelType.isNotEmpty) {
-            for (String f in fuelTypes) {
-              if (f.toUpperCase().contains(fuelType) || fuelType.contains(f.toUpperCase())) {
-                _selectedFuelItem = f;
-                break;
-              }
-            }
-          }
-          final catString = (details['vehicle_category_description'] ?? details['vehicle_category'] ?? makerModel).toString().toUpperCase();
-          for (String cat in _carCategories) {
-            if (catString.contains(cat)) {
-              _selectedCarCategory = cat;
-              _controllers['vehicle_type']!.text = cat;
-              break;
-            }
-          }
-
-          // Auto-detect Number Plate Color from RTO data
-          final String pType = (details['permit_type'] ?? '').toString().toUpperCase();
-          final String pNoStr = permitNo.toString().trim();
-          final bool hasValidPermit = pNoStr.isNotEmpty && pNoStr != '0' && pNoStr.toLowerCase() != 'null';
-
-          if (fuelType.contains('ELECTRIC') || fuelType.contains('EV')) {
-            _selectedPlateColor = 'GREEN PLATE';
-          } else if (hasValidPermit || pType.contains('CAB') || pType.contains('PERMIT') || catString.contains('MOTOR CAB') || catString.contains('TAXI')) {
-            _selectedPlateColor = 'YELLOW PLATE';
-          } else {
-            _selectedPlateColor = 'WHITE PLATE';
-          }
-          if (insNumber.isNotEmpty) {
-            _controllers['insurance_number']!.text = insNumber;
-          }
-          if (insUpto.isNotEmpty) {
-            try {
-              final pDate = DateTime.parse(insUpto);
-              _controllers['insurance_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
-            } catch (e) {
-              _controllers['insurance_doe']!.text = insUpto;
-            }
-          }
-          if (fitUpTo.isNotEmpty) {
-            try {
-              final pDate = DateTime.parse(fitUpTo);
-              final formatted = DateFormat('dd-MM-yyyy').format(pDate);
-              _controllers['fitness_certificate_doe']!.text = formatted;
-              _controllers['rc_manufecture_date']!.text = formatted;
-            } catch (e) {
-              _controllers['fitness_certificate_doe']!.text = fitUpTo;
-              _controllers['rc_manufecture_date']!.text = fitUpTo;
-            }
-          }
-          if (permitNo.isNotEmpty) {
-            _controllers['texi_permit_no']!.text = permitNo;
-          }
-          if (permitUpto.isNotEmpty) {
-            try {
-              final pDate = DateTime.parse(permitUpto);
-              _controllers['texi_permit_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
-            } catch (e) {
-              _controllers['texi_permit_doe']!.text = permitUpto;
-            }
-          }
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("✅ Vehicle RC Verified for $ownerName! Auto-populated vehicle specs."),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (data['otp_required'] == true) {
+          setState(() {
+            isVerifyingRc = false;
+            rcVerificationStatusMessage = "📱 OTP sent to vehicle owner mobile (${data['mobile_number']})";
+            rcVerificationStatusColor = primaryAmber;
+          });
+          await _showOtpDialog(rcNo, data['client_id'] ?? '', data['mobile_number'] ?? '');
+        } else {
+          _applyRcDetails(data['data'] ?? {}, rcNo);
+        }
       } else {
         final err = data['message'] ?? "RC Verification failed.";
         setState(() {
@@ -569,14 +690,12 @@ class _CarFormPageState extends State<CarFormPage> {
         setState(() {
           isVerifyingRc = false;
           isRcVerifiedSuccess = true;
-          rcVerificationStatusMessage = "✅ VEHICLE RC VERIFIED: ${_controllers['rc_name']!.text}";
-          rcVerificationStatusColor = Colors.green;
         });
       } else {
         setState(() {
           isVerifyingRc = false;
           isRcVerifiedSuccess = false;
-          rcVerificationStatusMessage = "❌ Connection Error: ${e.toString().replaceAll('Exception:', '').trim()}";
+          rcVerificationStatusMessage = "❌ Connection error: $e";
           rcVerificationStatusColor = Colors.redAccent;
         });
       }
