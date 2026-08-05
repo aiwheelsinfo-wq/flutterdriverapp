@@ -172,8 +172,18 @@ class _CarFormPageState extends State<CarFormPage> {
         }
       }
 
-      _controllers['puc_doi']!.text = (c['puc_doi'] ?? '').toString();
-      _controllers['puc_doe']!.text = (c['puc_doe'] ?? '').toString();
+      _controllers['puc_doi']!.text = (c['puc_doi'] ?? c['puc_number'] ?? c['pucc_number'] ?? '').toString();
+
+      final rawPucDoe = (c['puc_doe'] ?? c['pucc_upto'] ?? c['puc_upto'] ?? '').toString();
+      if (rawPucDoe.isNotEmpty) {
+        try {
+          final pDate = DateTime.parse(rawPucDoe);
+          _controllers['puc_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+        } catch (e) {
+          _controllers['puc_doe']!.text = rawPucDoe;
+        }
+      }
+
       _controllers['texi_permit_no']!.text = (c['texi_permit_no'] ?? c['permit_number'] ?? '').toString();
 
       final rawPermitDoe = (c['texi_permit_doe'] ?? c['permit_valid_upto'] ?? c['permit_upto'] ?? '').toString();
