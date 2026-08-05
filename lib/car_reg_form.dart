@@ -525,6 +525,19 @@ class _CarFormPageState extends State<CarFormPage> {
           _controllers['texi_permit_doe']!.text = permitUpto;
         }
       }
+      final pucNumber = (details['pucc_number'] ?? details['puc_number'] ?? "").toString();
+      final pucUpto = (details['pucc_upto'] ?? details['puc_doe'] ?? "").toString();
+      if (pucNumber.isNotEmpty && _controllers.containsKey('puc_doi')) {
+        _controllers['puc_doi']!.text = pucNumber;
+      }
+      if (pucUpto.isNotEmpty && _controllers.containsKey('puc_doe')) {
+        try {
+          final pDate = DateTime.parse(pucUpto);
+          _controllers['puc_doe']!.text = DateFormat('dd-MM-yyyy').format(pDate);
+        } catch (e) {
+          _controllers['puc_doe']!.text = pucUpto;
+        }
+      }
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
