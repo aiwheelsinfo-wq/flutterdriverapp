@@ -49,6 +49,12 @@ class _CarFormPageState extends State<CarFormPage> {
   bool isRcVerifiedSuccess = false;
   String? rcVerificationStatusMessage;
   Color rcVerificationStatusColor = Colors.grey;
+  bool isOtpSent = false;
+  String otpClientId = '';
+  String otpMobileNumber = '';
+  final TextEditingController _otpInputController = TextEditingController();
+  bool isSubmittingOtp = false;
+  String? otpErrorText;
 
   List<String> _carCategories = ['SEDAN', 'ERTIGA', 'INNOVA', 'CRYSTA'];
   String? _selectedCarCategory;
@@ -638,6 +644,51 @@ class _CarFormPageState extends State<CarFormPage> {
     );
   }
 
+  Future<void> _submitRcOtpInline() async {
+    final rcNo = _controllers['rc_no']!.text.trim().replaceAll(RegExp(r'[\s\-]'), '').toUpperCase();
+    final otp = _otpInputController.text.trim();
+    if (otp.length < 4) {
+      setState(() => otpErrorText = "Please enter valid 6-digit OTP");
+      return;
+    }
+
+    setState(() {
+      isSubmittingOtp = true;
+      otpErrorText = null;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.verifyRcOtp),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'rc_number': rcNo,
+          'client_id': otpClientId,
+          'otp': otp,
+        }),
+      );
+
+      final resData = jsonDecode(response.body);
+      if (response.statusCode == 200 && resData['success'] == true) {
+        setState(() {
+          isSubmittingOtp = false;
+          isOtpSent = false;
+        });
+        _applyRcDetails(resData['data'] ?? {}, rcNo);
+      } else {
+        setState(() {
+          isSubmittingOtp = false;
+          otpErrorText = resData['message'] ?? "OTP Verification failed";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isSubmittingOtp = false;
+        otpErrorText = "Connection error: $e";
+      });
+    }
+  }
+
   Future<void> _onVerifyRc() async {
     final rcNo = _controllers['rc_no']!.text.trim().replaceAll(RegExp(r'[\s\-]'), '').toUpperCase();
     if (rcNo.isEmpty || rcNo.length < 5) {
@@ -669,10 +720,12 @@ class _CarFormPageState extends State<CarFormPage> {
         if (data['otp_required'] == true) {
           setState(() {
             isVerifyingRc = false;
+            isOtpSent = true;
+            otpClientId = data['client_id'] ?? '';
+            otpMobileNumber = data['mobile_number'] ?? '';
             rcVerificationStatusMessage = "📱 OTP sent to vehicle owner mobile (${data['mobile_number']})";
             rcVerificationStatusColor = primaryAmber;
           });
-          await _showOtpDialog(rcNo, data['client_id'] ?? '', data['mobile_number'] ?? '');
         } else {
           _applyRcDetails(data['data'] ?? {}, rcNo);
         }
@@ -752,7 +805,87 @@ class _CarFormPageState extends State<CarFormPage> {
               ),
             ),
           ),
-          if (rcVerificationStatusMessage != null)
+
+          // ── INLINE OTP VERIFICATION CARD ──
+          if (isOtpSent && !isRcVerifiedSuccess)
+            Container(
+              margin: const EdgeInsets.only(top: 14),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: primaryAmber, width: 1.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.mark_email_unread_outlined, color: accentAmber, size: 22),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "OTP Sent to RC Mobile ($otpMobileNumber)",
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: charcoal),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Please enter the 6-digit OTP sent by RTO to the vehicle owner's mobile number:",
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _otpInputController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: InputDecoration(
+                      hintText: "Enter 6-Digit OTP (e.g. 123456)",
+                      errorText: otpErrorText,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: primaryAmber, width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: charcoal,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: isSubmittingOtp ? null : _submitRcOtpInline,
+                      icon: isSubmittingOtp
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.check_circle_outline, size: 20, color: primaryAmber),
+                      label: Text(
+                        isSubmittingOtp ? "VERIFYING OTP..." : "SUBMIT OTP & LOAD VEHICLE DETAILS",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          if (rcVerificationStatusMessage != null && !isOtpSent)
             Container(
               margin: const EdgeInsets.only(top: 10),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
