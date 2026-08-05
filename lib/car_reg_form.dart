@@ -423,8 +423,8 @@ class _CarFormPageState extends State<CarFormPage> {
         child: child!,
       ),
     );
-    if (picked != null) {
-        if (mounted) {
+    if (picked != null && mounted) {
+      setState(() {
         _controllers[key]!.text = DateFormat('dd-MM-yyyy').format(picked);
       });
     }
