@@ -1088,6 +1088,18 @@ class _CarFormPageState extends State<CarFormPage> {
                 apiKey: "insurance_doe",
                 readOnly: isRcVerifiedSuccess && _controllers['insurance_doe']!.text.isNotEmpty,
                 isDate: true),
+            _buildField(
+                label: "PUC Certificate No",
+                apiKey: "puc_doi",
+                isRequired: false,
+                readOnly: isRcVerifiedSuccess && _controllers['puc_doi']!.text.isNotEmpty,
+                hint: "Ex: KL07300120020832"),
+            _buildField(
+                label: "PUC Expiry Date",
+                apiKey: "puc_doe",
+                isRequired: false,
+                readOnly: isRcVerifiedSuccess && _controllers['puc_doe']!.text.isNotEmpty,
+                isDate: true),
 
             // Conditional Yellow Plate Sections
             if (_selectedPlateColor == 'YELLOW PLATE') ...[
