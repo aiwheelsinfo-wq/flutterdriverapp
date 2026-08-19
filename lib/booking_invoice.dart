@@ -393,11 +393,8 @@ class _InvoicePageState extends State<InvoicePage> {
         debugPrint("Error parsing booked dates: $e");
       }
       if (days <= 0) days = 1;
-      double dailyAllowance = double.tryParse(driver_allowance) ?? 300.0;
-      if (dailyAllowance == 400.0 || dailyAllowance <= 0.0) {
-        dailyAllowance = 300.0;
-      }
-      driver_allowanceXdays = dailyAllowance * days;
+      maxKm = max(runningKm, (daily_limit * days));
+      driver_allowanceXdays = double.parse(driver_allowance) * days;
       driver_allowance = driver_allowanceXdays.toString();
       totalDays = days;
 
@@ -426,15 +423,25 @@ class _InvoicePageState extends State<InvoicePage> {
     }
 
     double base_charge = 0.0;
+    double earlyMorningAllowanceVal = 0.0;
     if (invoiceData['trip_type'] == 'One-way') {
-      double distance = double.parse(invoiceData['distance'].toString());
-      double driver_allowance;
+      double distance = double.tryParse(invoiceData['distance']?.toString() ?? '0') ?? 0.0;
+      double recordedDriverTa = double.tryParse(invoiceData['driver_ta']?.toString() ?? '') ??
+          double.tryParse(invoiceData['driver_allowance']?.toString() ?? '') ??
+          ((distance < 200) ? 300.0 : 400.0);
 
-      driver_allowance = (distance < 200) ? 300 : 400;
+      double standardDriverAllowance = (distance < 200) ? 300.0 : 400.0;
+      if (recordedDriverTa >= (standardDriverAllowance + 250) ||
+          _isEarlyMorningTime(invoiceData['time'] ?? invoiceData['tripTime'] ?? invoiceData['starting_time'] ?? '')) {
+        earlyMorningAllowanceVal = 300.0;
+        driver_allowance = standardDriverAllowance.toStringAsFixed(2);
+      } else {
+        driver_allowance = recordedDriverTa.toStringAsFixed(2);
+      }
 
       baceAmount = invoiceData['total_amount'] != '0'
           ? double.parse(invoiceData['total_amount'].toString())
-          : (distance * kmRate) + driver_allowance;
+          : (distance * kmRate) + recordedDriverTa + agent_commission;
 
       double totalbeforeGst = (distance * kmRate) + agent_commission;
 
@@ -501,6 +508,8 @@ class _InvoicePageState extends State<InvoicePage> {
         _buildTableRow('Toll', '', '$toll_charge'),
         _buildTableRow('Permit Charge', '', '$permit_charge'),
         _buildTableRow('Driver Allowance', '', '${driver_allowance ?? ""} '),
+        if (earlyMorningAllowanceVal > 0)
+          _buildTableRow('Early Morning Allowance', '', '${earlyMorningAllowanceVal.toStringAsFixed(2)}'),
 
         if (invoiceData['trip_type'] == 'One-way') ...[
           _buildTableRow('Base Amount', '', '${base_charge.toStringAsFixed(2)}'),
@@ -538,5 +547,32 @@ class _InvoicePageState extends State<InvoicePage> {
             child: Text(col3, style: TextStyle(fontSize: 12))),
       ],
     );
+  }
+
+  bool _isEarlyMorningTime(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty) return false;
+    try {
+      final clean = timeStr.trim().toUpperCase();
+      int hour = -1;
+      int minute = 0;
+      if (clean.contains('AM') || clean.contains('PM')) {
+        final parts =
+            clean.replaceAll('AM', '').replaceAll('PM', '').trim().split(':');
+        hour = int.parse(parts[0]);
+        if (parts.length > 1) minute = int.parse(parts[1]);
+        if (clean.contains('AM')) {
+          if (hour == 12) hour = 0;
+        } else if (clean.contains('PM')) {
+          if (hour != 12) hour += 12;
+        }
+      } else {
+        final parts = clean.split(':');
+        hour = int.parse(parts[0]);
+        if (parts.length > 1) minute = int.parse(parts[1]);
+      }
+      return (hour >= 1 && hour < 6) || (hour == 6 && minute == 0);
+    } catch (_) {
+      return false;
+    }
   }
 }
