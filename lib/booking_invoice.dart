@@ -393,8 +393,11 @@ class _InvoicePageState extends State<InvoicePage> {
         debugPrint("Error parsing booked dates: $e");
       }
       if (days <= 0) days = 1;
-      maxKm = max(runningKm, (daily_limit * days));
-      driver_allowanceXdays = double.parse(driver_allowance) * days;
+      double dailyAllowance = double.tryParse(driver_allowance) ?? 300.0;
+      if (dailyAllowance == 400.0 || dailyAllowance <= 0.0) {
+        dailyAllowance = 300.0;
+      }
+      driver_allowanceXdays = dailyAllowance * days;
       driver_allowance = driver_allowanceXdays.toString();
       totalDays = days;
 
