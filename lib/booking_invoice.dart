@@ -273,8 +273,11 @@ class _InvoicePageState extends State<InvoicePage> {
     final startingTime = invoiceData['starting_time']; // e.g., "09:00:00"
     final closingDate = invoiceData['closing_date']; // e.g., "2025-04-26"
     final closingTime = invoiceData['closing_time']; // e.g., "17:30:00"
-    final startDateTime = DateTime.parse('$startingDate $startingTime');
-    final endDateTime = DateTime.parse('$closingDate $closingTime');
+    final startDateTime = DateTime.tryParse('$startingDate $startingTime') ?? DateTime.now();
+    var endDateTime = DateTime.tryParse('$closingDate $closingTime') ?? DateTime.now();
+    if (endDateTime.isBefore(startDateTime)) {
+      endDateTime = endDateTime.add(const Duration(days: 1));
+    }
     final duration = endDateTime.difference(startDateTime);
     var hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
