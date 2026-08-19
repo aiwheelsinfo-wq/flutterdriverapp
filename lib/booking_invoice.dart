@@ -129,7 +129,11 @@ class _InvoicePageState extends State<InvoicePage> {
                 (data['toll_charge'] ?? '0').toString();
             invoiceData['gstPercent'] = (data['gstPercent'] ?? '0').toString();
             invoiceData['driver_allowance'] =
-                (data['driver_allowance'] ?? '0').toString();
+                (data['driver_ta'] ?? data['driver_allowance'] ?? '0').toString();
+            invoiceData['driver_ta'] =
+                (data['driver_ta'] ?? data['driver_allowance'] ?? '0').toString();
+            invoiceData['trip_time'] =
+                (data['time'] ?? data['trip_time'] ?? data['starting_time'] ?? '').toString();
             invoiceData['trip_type'] =
                 (data['trip_type'] ?? 'Not Generated').toString();
             invoiceData['daily_limit'] =
@@ -426,13 +430,14 @@ class _InvoicePageState extends State<InvoicePage> {
     double earlyMorningAllowanceVal = 0.0;
     if (invoiceData['trip_type'] == 'One-way') {
       double distance = double.tryParse(invoiceData['distance']?.toString() ?? '0') ?? 0.0;
-      double recordedDriverTa = double.tryParse(invoiceData['driver_ta']?.toString() ?? '') ??
-          double.tryParse(invoiceData['driver_allowance']?.toString() ?? '') ??
-          ((distance < 200) ? 300.0 : 400.0);
+      double parsedDriverTa = double.tryParse(invoiceData['driver_ta']?.toString() ?? '') ??
+          double.tryParse(invoiceData['driver_allowance']?.toString() ?? '') ?? 0.0;
 
       double standardDriverAllowance = (distance < 200) ? 300.0 : 400.0;
+      double recordedDriverTa = (parsedDriverTa > 0) ? parsedDriverTa : standardDriverAllowance;
+
       if (recordedDriverTa >= (standardDriverAllowance + 250) ||
-          _isEarlyMorningTime(invoiceData['time'] ?? invoiceData['tripTime'] ?? invoiceData['starting_time'] ?? '')) {
+          _isEarlyMorningTime(invoiceData['time'] ?? invoiceData['trip_time'] ?? invoiceData['tripTime'] ?? invoiceData['starting_time'] ?? '')) {
         earlyMorningAllowanceVal = 300.0;
         driver_allowance = standardDriverAllowance.toStringAsFixed(2);
       } else {
