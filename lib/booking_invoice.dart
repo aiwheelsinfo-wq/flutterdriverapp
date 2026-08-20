@@ -604,8 +604,13 @@ class _InvoicePageState extends State<InvoicePage> {
       }
       if (days <= 0) days = 1;
       maxKm = max(runningKm, (daily_limit * days));
-      driver_allowanceXdays = double.parse(driver_allowance) * days;
-      driver_allowance = driver_allowanceXdays.toString();
+      double dailyAllowance = double.tryParse(driver_allowance) ?? 400.0;
+      bool isEarlyMorning = _isEarlyMorningTime(startingTime ?? '') ||
+          ((startDateTime.hour >= 1 && startDateTime.hour < 6) ||
+              (startDateTime.hour == 6 && startDateTime.minute == 0));
+      double earlyMorningAllowance = isEarlyMorning ? 300.0 : 0.0;
+      driver_allowanceXdays = (dailyAllowance * days) + earlyMorningAllowance;
+      driver_allowance = driver_allowanceXdays.toStringAsFixed(2);
       totalDays = days;
 
       double commissionRateVal = 0.0;
@@ -1100,5 +1105,32 @@ class _InvoicePageState extends State<InvoicePage> {
         ),
       ],
     );
+  }
+
+  bool _isEarlyMorningTime(String timeStr) {
+    if (timeStr.isEmpty) return false;
+    try {
+      final clean = timeStr.trim().toUpperCase();
+      int hour = -1;
+      int minute = 0;
+      if (clean.contains('AM') || clean.contains('PM')) {
+        final parts =
+            clean.replaceAll('AM', '').replaceAll('PM', '').trim().split(':');
+        hour = int.parse(parts[0]);
+        if (parts.length > 1) minute = int.parse(parts[1]);
+        if (clean.contains('AM')) {
+          if (hour == 12) hour = 0;
+        } else if (clean.contains('PM')) {
+          if (hour != 12) hour += 12;
+        }
+      } else {
+        final parts = clean.split(':');
+        hour = int.parse(parts[0]);
+        if (parts.length > 1) minute = int.parse(parts[1]);
+      }
+      return (hour >= 1 && hour < 6) || (hour == 6 && minute == 0);
+    } catch (_) {
+      return false;
+    }
   }
 }
