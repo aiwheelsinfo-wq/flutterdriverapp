@@ -820,9 +820,9 @@ class _InvoicePageState extends State<InvoicePage> {
             ),
             child: Table(
               columnWidths: const {
-                0: FlexColumnWidth(5),
-                1: FlexColumnWidth(3),
-                2: FlexColumnWidth(2),
+                0: FlexColumnWidth(4.2),
+                1: FlexColumnWidth(2.5),
+                2: FlexColumnWidth(3.3),
               },
               children: [
                 _buildModernTableRow(
@@ -1128,35 +1128,37 @@ class _InvoicePageState extends State<InvoicePage> {
       ),
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           child: Text(
             col1,
             style: TextStyle(
               fontWeight: (col1 == 'TOTAL' || isHeader)
                   ? FontWeight.bold
-                  : textWeight,
+                  : (isTotal ? FontWeight.bold : FontWeight.w500),
               fontSize: fontSize,
               color: textColor,
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
           child: Text(
             col2,
             style: TextStyle(
-              fontWeight: textWeight,
+              fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
               fontSize: fontSize,
               color: isHeader ? Colors.white : const Color(0xFF475569),
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           child: Align(
             alignment: Alignment.centerRight,
             child: Text(
               displayCol3,
+              softWrap: false,
+              maxLines: 1,
               style: TextStyle(
                 fontWeight: (col1 == 'TOTAL' || isHeader)
                     ? FontWeight.bold
