@@ -875,11 +875,13 @@ class _InvoicePageState extends State<InvoicePage> {
                       isAlt: true),
                 ],
                 _buildModernTableRow('Parking', '', '$parking_charge'),
-                _buildModernTableRow('Toll', '', '$toll_charge', isAlt: true),
-                _buildModernTableRow('Permit Charge', '', '$permit_charge'),
-                _buildModernTableRow(
-                    'Driver Allowance', '', '${driver_allowance ?? ""} ',
-                    isAlt: true),
+                if (invoiceData['trip_type'] != 'One-way') ...[
+                  _buildModernTableRow('Toll', '', '$toll_charge', isAlt: true),
+                  _buildModernTableRow('Permit Charge', '', '$permit_charge'),
+                  _buildModernTableRow(
+                      'Driver Allowance', '', '${driver_allowance ?? ""} ',
+                      isAlt: true),
+                ],
                 if (invoiceData['trip_type'] == 'One-way') ...[
                   _buildModernTableRow(
                       'Base Amount', '', '$base_charge'),
