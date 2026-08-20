@@ -68,6 +68,9 @@ class _InvoicePageState extends State<InvoicePage> {
     'discount_name': '',
     'base_charge': '0',
     'paid_amount': '0',
+    'driver_name': '',
+    'driver_phone': '',
+    'vehicle_number': '',
   };
 
   @override
@@ -151,6 +154,10 @@ class _InvoicePageState extends State<InvoicePage> {
                 (data['base_charge'] ?? '0').toString();
             invoiceData['paid_amount'] =
                 (data['paid_amount'] ?? '0').toString();
+            invoiceData['driver_name'] = (data['driver_name'] ?? '').toString();
+            invoiceData['driver_phone'] = (data['driver_phone'] ?? '').toString();
+            invoiceData['vehicle_number'] =
+                (data['vehicle_number'] ?? data['vehicle_id'] ?? '').toString();
             invoiceData['agent_agency_name'] =
                 data['agent_agency_name'] ?? data['agency_name'] ?? '';
             invoiceData['agent_name'] = data['agent_name'] ?? '';
@@ -489,6 +496,18 @@ class _InvoicePageState extends State<InvoicePage> {
               ],
               _buildInfoRow(Icons.directions_car_outlined, "Vehicle",
                   invoiceData['car_type']!),
+              if (invoiceData['driver_name'] != null &&
+                  invoiceData['driver_name']!.isNotEmpty &&
+                  invoiceData['driver_name'] != 'Not Generated') ...[
+                _buildInfoRow(Icons.person_pin_circle_outlined, "Driver Name",
+                    invoiceData['driver_name']!),
+              ],
+              if (invoiceData['driver_phone'] != null &&
+                  invoiceData['driver_phone']!.isNotEmpty &&
+                  invoiceData['driver_phone'] != 'Not Generated') ...[
+                _buildInfoRow(Icons.phone_outlined, "Driver Phone",
+                    invoiceData['driver_phone']!),
+              ],
               _buildInfoRow(Icons.trip_origin, "From", invoiceData['from']!),
               if (invoiceData['trip_type'] != 'Local-Duty') ...[
                 _buildInfoRow(
