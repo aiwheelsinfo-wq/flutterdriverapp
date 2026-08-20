@@ -175,6 +175,70 @@ class _InvoicePageState extends State<InvoicePage> {
     }
   }
 
+  String _formatCurrency(dynamic value) {
+    if (value == null) return '₹0';
+    double? numVal;
+    if (value is num) {
+      numVal = value.toDouble();
+    } else if (value is String) {
+      String cleanStr = value
+          .replaceAll('₹', '')
+          .replaceAll('Rs', '')
+          .replaceAll(',', '')
+          .trim();
+      numVal = double.tryParse(cleanStr);
+    }
+    if (numVal == null) return value.toString();
+
+    if (numVal % 1 == 0) {
+      final f = NumberFormat.currency(
+        locale: 'en_IN',
+        symbol: '₹',
+        decimalDigits: 0,
+      );
+      return f.format(numVal.toInt());
+    } else {
+      final f = NumberFormat.currency(
+        locale: 'en_IN',
+        symbol: '₹',
+        decimalDigits: 2,
+      );
+      String res = f.format(numVal);
+      if (res.endsWith('.00')) {
+        return res.substring(0, res.length - 3);
+      }
+      return res;
+    }
+  }
+
+  String _formatNumber(dynamic value) {
+    if (value == null) return '0';
+    double? numVal;
+    if (value is num) {
+      numVal = value.toDouble();
+    } else if (value is String) {
+      String cleanStr = value.replaceAll(',', '').trim();
+      numVal = double.tryParse(cleanStr);
+    }
+    if (numVal == null) return value.toString();
+
+    if (numVal % 1 == 0) {
+      final f = NumberFormat.decimalPattern('en_IN');
+      return f.format(numVal.toInt());
+    } else {
+      final f = NumberFormat.currency(
+        locale: 'en_IN',
+        symbol: '',
+        decimalDigits: 2,
+      );
+      String res = f.format(numVal).trim();
+      if (res.endsWith('.00')) {
+        return res.substring(0, res.length - 3);
+      }
+      return res;
+    }
+  }
+
   bool get _isAgentInvoice {
     if (userType == 'agent') return true;
     if (invoiceData['agent_accountType'] == 'agent') return true;
@@ -625,8 +689,10 @@ class _InvoicePageState extends State<InvoicePage> {
       baceAmount = baseKmCharge + agentCommissionAmount;
 
       commissionFormulaText = effectiveKmRate % 1 == 0
-          ? effectiveKmRate.toStringAsFixed(0)
-          : effectiveKmRate.toStringAsFixed(1);
+          ? effectiveKmRate.toInt().toString()
+          : (effectiveKmRate.toStringAsFixed(2).endsWith('.00')
+              ? effectiveKmRate.toInt().toString()
+              : effectiveKmRate.toStringAsFixed(1));
 
       gst = baceAmount! * gstPercent / 100;
 
@@ -728,10 +794,10 @@ class _InvoicePageState extends State<InvoicePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildMeterCell("START KM", invoiceData['starting_km']!),
-                    _buildMeterCell("END KM", invoiceData['closing_km']!),
+                    _buildMeterCell("START KM", _formatNumber(invoiceData['starting_km']!)),
+                    _buildMeterCell("END KM", _formatNumber(invoiceData['closing_km']!)),
                     _buildMeterCell(
-                        "TOTAL KM", "${totalKm.toStringAsFixed(2)} KM",
+                        "TOTAL KM", "${_formatNumber(totalKm)} KM",
                         isHighlight: true),
                     if (invoiceData['trip_type'] == 'Round-Trip')
                       _buildMeterCell("DAYS", "$totalDays Days"),
@@ -765,25 +831,25 @@ class _InvoicePageState extends State<InvoicePage> {
                 if (invoiceData['trip_type'] == 'Local-Duty') ...[
                   _buildModernTableRow(
                     'Package',
-                    '${invoiceData['packageHours']} Hours - ${invoiceData['packageKm']} Km',
+                    '${invoiceData['packageHours']} Hours - ${_formatNumber(invoiceData['packageKm'])} Km',
                     '$packageBaseWithCommission',
                   ),
                   _buildModernTableRow(
                     'Extra Km',
-                    'Rs ${invoiceData['extra_km_price']} * $extraKm Km',
+                    'Rs ${_formatNumber(invoiceData['extra_km_price'])} * ${_formatNumber(extraKm)} Km',
                     '$extrakmAmount',
                     isAlt: true,
                   ),
                   _buildModernTableRow(
                     'Extra Hrs',
-                    'Rs ${invoiceData['extra_hours_price']} * $extraHours Hrs',
+                    'Rs ${_formatNumber(invoiceData['extra_hours_price'])} * ${_formatNumber(extraHours)} Hrs',
                     '$extraHoursAmount',
                   ),
                 ],
                 if (invoiceData['trip_type'] == 'Round-Trip') ...[
                   _buildModernTableRow(
                     'Total Km charge',
-                    '$maxKm x $commissionFormulaText',
+                    '${_formatNumber(maxKm)} x $commissionFormulaText',
                     '$baceAmount',
                   ),
                   _buildModernTableRow('Total Days', '$totalDays Days', '',
@@ -797,14 +863,14 @@ class _InvoicePageState extends State<InvoicePage> {
                     isAlt: true),
                 if (invoiceData['trip_type'] == 'One-way') ...[
                   _buildModernTableRow(
-                      'Base Amount', '', '${base_charge.toStringAsFixed(2)}'),
+                      'Base Amount', '', '$base_charge'),
                   _buildModernTableRow('Agent Commission', '',
-                      '${agent_commission.toStringAsFixed(2)}',
+                      '$agent_commission',
                       isAlt: true),
                   _buildModernTableRow('Total Charge', '', '$baceAmount'),
                 ],
                 if (invoiceData['trip_type'] != 'Local-taxi') ...[
-                  _buildModernTableRow('GST $gstPercent%', '', '$gst'),
+                  _buildModernTableRow('GST ${_formatNumber(gstPercent)}%', '', '$gst'),
                 ],
               ],
             ),
@@ -848,7 +914,7 @@ class _InvoicePageState extends State<InvoicePage> {
                       ),
                     ),
                     Text(
-                      "₹$netTotal",
+                      _formatCurrency(netTotal),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -865,7 +931,7 @@ class _InvoicePageState extends State<InvoicePage> {
                   const Text("Advance Amount",
                       style:
                           TextStyle(fontSize: 13, color: Color(0xFF475569))),
-                  Text("₹${advancedAmount.toStringAsFixed(2)}",
+                  Text(_formatCurrency(advancedAmount),
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -881,7 +947,7 @@ class _InvoicePageState extends State<InvoicePage> {
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF0F172A))),
-                  Text("₹${balanceAmount.toStringAsFixed(2)}",
+                  Text(_formatCurrency(balanceAmount),
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -1039,6 +1105,15 @@ class _InvoicePageState extends State<InvoicePage> {
         (isHeader || isTotal) ? FontWeight.bold : FontWeight.normal;
     final fontSize = isHeader ? 11.5 : (isTotal ? 12.5 : 11.5);
 
+    String displayCol3 = '';
+    if (col3.isNotEmpty) {
+      if (isHeader || col3 == 'TOTAL' || col3 == 'AMOUNT') {
+        displayCol3 = col3;
+      } else {
+        displayCol3 = _formatCurrency(col3);
+      }
+    }
+
     return TableRow(
       decoration: BoxDecoration(
         color: bgColor,
@@ -1047,7 +1122,7 @@ class _InvoicePageState extends State<InvoicePage> {
             color: isHeader
                 ? const Color(0xFF1E3A8A)
                 : const Color(0xFFE2E8F0),
-            width: isTotal ? 1.5 : 0.6,
+            width: isTotal ? 1.5 : 0.8,
           ),
         ),
       ),
@@ -1081,14 +1156,7 @@ class _InvoicePageState extends State<InvoicePage> {
           child: Align(
             alignment: Alignment.centerRight,
             child: Text(
-              col3.isNotEmpty
-                  ? (col3.startsWith('Rs') ||
-                          col3.startsWith('₹') ||
-                          col3 == 'TOTAL' ||
-                          isHeader
-                      ? col3
-                      : '₹$col3')
-                  : '',
+              displayCol3,
               style: TextStyle(
                 fontWeight: (col1 == 'TOTAL' || isHeader)
                     ? FontWeight.bold
