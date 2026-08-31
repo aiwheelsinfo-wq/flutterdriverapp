@@ -200,10 +200,10 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
     }
 
 
-    double advancePaid = fare * 0.25;
-    double remainingCollect = fare * 0.75;
-    double totalEarnings = fare * 0.90;
-    double settlementEligible = advancePaid * 0.60;
+    double advancePaid = (paidAmount != null && paidAmount! > 0) ? paidAmount! : (fare * 0.25);
+    double remainingCollect = (paidAmount != null && paidAmount! > 0) ? ((fare - paidAmount!) > 0 ? (fare - paidAmount!) : 0.0) : (fare * 0.75);
+    double totalEarnings = (vendorAmount != null && vendorAmount! > 0) ? vendorAmount! : (fare * 0.90);
+    double settlementEligible = (totalEarnings > remainingCollect) ? (totalEarnings - remainingCollect) : (advancePaid * 0.60);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),

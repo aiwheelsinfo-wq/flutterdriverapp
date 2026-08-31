@@ -555,10 +555,11 @@ class _CompleatedListState extends State<CompleatedList> {
                       double agentCommWithTax = agentComm * 1.05;
                       double baseTripFare = fare - agentCommWithTax;
 
-                      double advancePaid = baseTripFare * 0.25;
-                      double remainingCollect = baseTripFare * 0.75 + agentCommWithTax;
-                      double totalEarnings = baseTripFare * 0.90;
-                      double settlementEligible = advancePaid * 0.60;
+                      double rawPaid = double.tryParse(booking['paid_amount']?.toString() ?? '') ?? 0.0;
+                      double advancePaid = rawPaid > 0 ? rawPaid : (baseTripFare * 0.25);
+                      double remainingCollect = rawPaid > 0 ? ((fare - rawPaid) > 0 ? (fare - rawPaid) : 0.0) : (baseTripFare * 0.75 + agentCommWithTax);
+                      double totalEarnings = vendorAmt > 0 ? vendorAmt : (baseTripFare * 0.90);
+                      double settlementEligible = (totalEarnings > remainingCollect) ? (totalEarnings - remainingCollect) : (advancePaid * 0.60);
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
