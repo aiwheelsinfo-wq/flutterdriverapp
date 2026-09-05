@@ -751,8 +751,13 @@ class _InvoicePageState extends State<InvoicePage> {
       netTotal = double.parse(netTotal.toStringAsFixed(2));
     }
 
-    if (invoiceData['trip_type'] == 'Local-taxi') {
-      netTotal = double.parse(invoiceData['total_amount'].toString());
+    final isLocalTaxi = (invoiceData['trip_type'] ?? '')
+        .toString()
+        .toLowerCase()
+        .replaceAll(' ', '-')
+        .contains('local-taxi');
+    if (isLocalTaxi) {
+      netTotal = double.tryParse(invoiceData['total_amount']?.toString() ?? '0') ?? 0.0;
     }
 
     final double advancedAmount =
@@ -874,8 +879,21 @@ class _InvoicePageState extends State<InvoicePage> {
                   _buildModernTableRow('Total Days', '$totalDays Days', '',
                       isAlt: true),
                 ],
-                _buildModernTableRow('Parking', '', '$parking_charge'),
-                if (invoiceData['trip_type'] != 'One-way') ...[
+                if (isLocalTaxi) ...[
+                  _buildModernTableRow(
+                    'Local Taxi Fare',
+                    (totalKm > 0)
+                        ? '${_formatNumber(totalKm)} Km'
+                        : ((invoiceData['distance'] != null && invoiceData['distance'] != '0')
+                            ? '${invoiceData['distance']} Km'
+                            : ''),
+                    '${_formatNumber(netTotal)}',
+                  ),
+                ],
+                if (!isLocalTaxi) ...[
+                  _buildModernTableRow('Parking', '', '$parking_charge'),
+                ],
+                if (invoiceData['trip_type'] != 'One-way' && !isLocalTaxi) ...[
                   _buildModernTableRow('Toll', '', '$toll_charge', isAlt: true),
                   _buildModernTableRow('Permit Charge', '', '$permit_charge'),
                   _buildModernTableRow(

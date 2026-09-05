@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../main.dart';
 import '../trip_accepting.dart';
+import '../widgets/ride_request_dialog.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -35,7 +37,7 @@ class NotificationService {
       await _setupMessageHandlers();
 
       final token = await _messaging.getToken();
-      print('FCM Token: $token');
+      debugPrint('FCM Token: $token');
     } catch (e) {
       debugPrint("⚠️ NotificationService initialize error: $e");
     }
@@ -51,7 +53,7 @@ class NotificationService {
       carPlay: false,
       criticalAlert: false,
     );
-    print('Permission status: ${settings.authorizationStatus}');
+    debugPrint('Permission status: ${settings.authorizationStatus}');
   }
 
   Future<void> setupFlutterNotifications() async {
@@ -59,19 +61,38 @@ class NotificationService {
       return;
     }
 
-    // Android notification channel
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'high_importance_channel', // ID
-      'High Importance Notifications', // Name
-      description: 'This channel is used for important notifications.',
+    // 15-second pulsing vibration pattern (10 pulses of vibration over 15.0 seconds)
+    final Int64List vibrationPattern15Sec = Int64List.fromList([
+      0, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000,
+      500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1500,
+    ]);
+
+    // 1. High-Priority Uber-style Ride Request Channel (loud alarm sound & 15s repeating vibration)
+    final AndroidNotificationChannel rideAlertChannel = AndroidNotificationChannel(
+      'rentox_ride_alert_channel',
+      'Ride Requests & Booking Alerts',
+      description: 'High priority incoming trip notifications with alarm ringtone.',
+      importance: Importance.max,
+      playSound: true,
+      sound: const RawResourceAndroidNotificationSound('preview'),
+      enableVibration: true,
+      vibrationPattern: vibrationPattern15Sec,
+    );
+
+    // 2. Standard Channel for general status updates
+    const AndroidNotificationChannel standardChannel = AndroidNotificationChannel(
+      'high_importance_channel',
+      'General Notifications',
+      description: 'Used for status updates and general notifications.',
       importance: Importance.high,
       playSound: true,
     );
 
-    await _localNotifications
+    final androidPlugin = _localNotifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+            AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.createNotificationChannel(rideAlertChannel);
+    await androidPlugin?.createNotificationChannel(standardChannel);
 
     // Android initialization
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -95,7 +116,7 @@ class NotificationService {
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (details) async {
-        print("Notification clicked: ${details.payload}");
+        debugPrint("Notification clicked: ${details.payload}");
         if (details.payload != null) {
           try {
             final Map<String, dynamic> data = jsonDecode(details.payload!);
@@ -117,7 +138,7 @@ class NotificationService {
               }
             }
           } catch (e) {
-            print("Error parsing local notification payload: $e");
+            debugPrint("Error parsing local notification payload: $e");
           }
         }
       },
@@ -127,41 +148,93 @@ class NotificationService {
   }
 
   Future<void> showNotification(RemoteMessage message) async {
-    RemoteNotification? notification = message.notification;
+    final Map<String, dynamic> data = message.data;
+    final bool isNewBooking = (data['notification_type'] == 'new_booking');
 
-    if (notification != null) {
-      await _localNotifications.show(
-        notification.hashCode,
-        notification.title,
-        notification.body,
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            'high_importance_channel', // ID
-            'High Importance Notifications', // Name
+    String title = message.notification?.title ??
+        (isNewBooking ? 'New Trip Available!' : 'Rentox Alert');
+    String body = message.notification?.body ?? '';
+    if (body.isEmpty && isNewBooking) {
+      final pickup = data['pickup_location'] ?? 'Customer location';
+      final earnings = data['vendor_amount'] ?? '0';
+      body = 'From: $pickup\nEarnings: ₹$earnings';
+    }
+
+    final androidDetails = isNewBooking
+        ? AndroidNotificationDetails(
+            'rentox_ride_alert_channel',
+            'Ride Requests & Booking Alerts',
+            channelDescription:
+                'High priority incoming trip notifications with alarm ringtone.',
+            importance: Importance.max,
+            priority: Priority.max,
+            fullScreenIntent: true,
+            category: AndroidNotificationCategory.call,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+            playSound: true,
+            sound: const RawResourceAndroidNotificationSound('preview'),
+            enableVibration: true,
+            vibrationPattern: Int64List.fromList([
+              0, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000,
+              500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1500,
+            ]),
+            icon: '@mipmap/ic_launcher',
+          )
+        : const AndroidNotificationDetails(
+            'high_importance_channel',
+            'General Notifications',
             channelDescription:
                 'This channel is used for important notifications.',
             importance: Importance.high,
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
-          ),
-          iOS: const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
+          );
+
+    await _localNotifications.show(
+      message.hashCode,
+      title,
+      body,
+      NotificationDetails(
+        android: androidDetails,
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
         ),
-        payload: jsonEncode(message.data),
-      );
-    }
+      ),
+      payload: jsonEncode(message.data),
+    );
   }
 
   Future<void> _setupMessageHandlers() async {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       showNotification(message);
       notificationStreamController.add(message);
+
+      // In-app interactive popup dialog when driver has the app open
+      if (message.data['notification_type'] == 'new_booking') {
+        _triggerInAppRideRequest(message.data);
+      }
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
+  }
+
+  void _triggerInAppRideRequest(Map<String, dynamic> data) {
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      final bookingId = data['booking_id']?.toString() ?? '';
+      if (bookingId.isNotEmpty) {
+        RideRequestDialog.show(
+          context,
+          bookingId: bookingId,
+          tripType: data['booking_type']?.toString() ?? 'Taxi Ride',
+          pickupLocation: data['pickup_location']?.toString() ?? '',
+          dropLocation: data['drop_location']?.toString() ?? '',
+          vendorAmount: data['vendor_amount']?.toString() ?? '0',
+        );
+      }
+    }
   }
 
   Future<void> _handleBackgroundMessage(RemoteMessage message) async {
