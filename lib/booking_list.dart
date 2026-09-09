@@ -26,6 +26,7 @@ import 'driver_add_form.dart';
 import 'settlements_page.dart';
 import 'package:geolocator/geolocator.dart';
 import 'services/overlay_service.dart';
+import 'support_chat_page.dart';
 
 class BookingListPage extends StatefulWidget {
   final String phoneNumber;
@@ -474,9 +475,25 @@ class _BookingListPageState extends State<BookingListPage> {
       actions: [
         Center(
           child: Padding(
-            padding: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.only(right: 4),
             child: _buildOnlineOfflineToggle(),
           ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.support_agent_rounded, color: Color(0xFF475569)),
+          tooltip: "Helpdesk Support Chat",
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SupportChatPage(
+                  phoneNumber: widget.phoneNumber,
+                  blockReason: blockReason,
+                  isBlocked: isBlocked,
+                ),
+              ),
+            );
+          },
         ),
         IconButton(
           icon: const Icon(Icons.refresh_rounded, color: Colors.grey),
@@ -671,11 +688,19 @@ class _BookingListPageState extends State<BookingListPage> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
-                final Uri whatsappUrl = Uri.parse("https://wa.me/919847267465?text=Hello%20Rentox%20Support,%20my%20partner%20account%20has%20been%20suspended.%20Please%20assist.");
-                launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SupportChatPage(
+                      phoneNumber: widget.phoneNumber,
+                      blockReason: blockReason,
+                      isBlocked: isBlocked,
+                    ),
+                  ),
+                );
               },
-              icon: const Icon(Icons.support_agent_rounded, size: 18),
-              label: const Text("CONTACT SUPPORT FOR RE-ACTIVATION"),
+              icon: const Icon(Icons.chat_bubble_rounded, size: 18),
+              label: const Text("CHAT WITH HELPDESK TO RE-ACTIVATE"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFDC2626),
                 foregroundColor: Colors.white,

@@ -47,10 +47,12 @@ class ApiConfig {
   static const String updateEndTripDetails = "$driverPath/update_endTrip_Details.php";
   static const String updateFcmToken = "$driverPath/update_fcm_token.php";
   static const String updateLocation = "$driverPath/update_location.php";
+  static const String updateDriverStatus = "$driverPath/update_driver_status.php";
   static const String verifyDl = "$driverPath/verify_dl.php";
   static const String verifyRc = "$driverPath/verify_rc.php";
   static const String sendRcOtp = "$driverPath/send_rc_otp.php";
   static const String verifyRcOtp = "$driverPath/verify_rc_otp.php";
+  static const String supportChat = "$baseUrl/admin2025/support_chat.php";
 
   // Assets
   static const String add1Webp = "$driverPath/add/add1.webp";
