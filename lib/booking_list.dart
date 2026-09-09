@@ -20,12 +20,12 @@ import 'car_driver_selection_page.dart';
 import 'document_expered_page.dart';
 import 'compleated_List.dart';
 import 'show_map.dart';
-import 'whatsapp_booking_list.dart';
 import 'owner_account.dart';
 import 'car_reg_form.dart';
 import 'driver_add_form.dart';
 import 'settlements_page.dart';
 import 'package:geolocator/geolocator.dart';
+import 'services/overlay_service.dart';
 
 class BookingListPage extends StatefulWidget {
   final String phoneNumber;
@@ -42,9 +42,24 @@ class _BookingListPageState extends State<BookingListPage> {
   int _selectedIndex = 0;
   bool isLoading = true;
   int totalTripCount = 0;
+  List<dynamic> allBookings = [];
   List<dynamic> bookings = [];
   Timer? _timer;
   StreamSubscription? _notificationSubscription;
+
+  // Online / Offline State
+  bool isOnline = true;
+  bool isTogglingStatus = false;
+  bool isBlocked = false;
+  String blockReason = '';
+
+  // Filter & Sort State
+  String selectedQuickFilter = 'All'; // 'All', 'Today', 'Advance', 'Local-taxi', 'One-way', 'Round-Trip'
+  String selectedDateFilter = 'All'; // 'All', 'Today', 'Advance', 'Custom'
+  DateTime? customFilterDate;
+  String selectedTripTypeFilter = 'All'; // 'All', 'Local-taxi', 'One-way', 'Round-Trip', 'Local-duty'
+  String selectedCarTypeFilter = 'All'; // 'All', 'Sedan', 'SUV', 'Hatchback'
+  String selectedSortFilter = 'Default'; // 'Default', 'PriceHighToLow', 'DistanceNearest', 'PickupTime'
 
   // Professional Color Palette
   final Color primaryAmber = const Color(0xFFFFB300);
@@ -59,6 +74,7 @@ class _BookingListPageState extends State<BookingListPage> {
   @override
   void initState() {
     super.initState();
+    _loadInitialOnlineStatus();
     _updateCurrentLocation();
     fetchBookings();
     _startLiveUpdateTimer();
@@ -69,6 +85,143 @@ class _BookingListPageState extends State<BookingListPage> {
         fetchBookings();
       }
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      OverlayService.instance.showPermissionPromptIfNeeded(context);
+    });
+  }
+
+  Future<void> _loadInitialOnlineStatus() async {
+    try {
+      final stored = await secureStorage.read(key: "is_driver_online");
+      if (stored != null && mounted) {
+        setState(() => isOnline = (stored == 'true'));
+      }
+      final res = await http.get(Uri.parse("${ApiConfig.updateDriverStatus}?phone_number=${widget.phoneNumber}"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['is_blocked'] == true || data['status'] == 'blocked' || data['driver_status'] == 'blocked') {
+          if (mounted) {
+            setState(() {
+              isBlocked = true;
+              blockReason = data['block_reason'] ?? 'Administrative restriction';
+              isOnline = false;
+            });
+            await secureStorage.write(key: "is_driver_online", value: "false");
+          }
+        } else if (data['status'] == 'success' && data['is_online'] != null) {
+          final serverOnline = (data['is_online'] == true);
+          if (mounted) {
+            setState(() {
+              isBlocked = false;
+              isOnline = serverOnline;
+            });
+            await secureStorage.write(key: "is_driver_online", value: serverOnline.toString());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking online status: $e");
+    }
+  }
+
+  Future<void> _toggleOnlineOffline(bool newValue) async {
+    if (isBlocked) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Account Suspended: Cannot go online. $blockReason"),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (isTogglingStatus) return;
+    setState(() {
+      isTogglingStatus = true;
+      isOnline = newValue;
+    });
+
+    try {
+      await secureStorage.write(key: "is_driver_online", value: newValue.toString());
+      final res = await http.post(
+        Uri.parse(ApiConfig.updateDriverStatus),
+        body: {
+          "phone_number": widget.phoneNumber,
+          "status": newValue ? "active" : "offline"
+        },
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['is_blocked'] == true || data['status'] == 'blocked') {
+          if (mounted) {
+            setState(() {
+              isBlocked = true;
+              blockReason = data['block_reason'] ?? 'Administrative restriction';
+              isOnline = false;
+            });
+            await secureStorage.write(key: "is_driver_online", value: "false");
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("Account Blocked: ${data['message'] ?? blockReason}"),
+                backgroundColor: const Color(0xFFDC2626),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
+        }
+        if (data['status'] == 'success') {
+          if (mounted) {
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(
+                      newValue ? Icons.check_circle_rounded : Icons.pause_circle_filled_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        newValue
+                            ? "You are ONLINE • Ready for trips"
+                            : "You are OFFLINE • Siren alerts paused",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: newValue ? const Color(0xFF059669) : const Color(0xFF1F2937),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 95),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+            if (newValue) {
+              fetchBookings();
+              _updateCurrentLocation();
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error updating driver status: $e");
+    } finally {
+      if (mounted) setState(() => isTogglingStatus = false);
+    }
   }
 
   @override
@@ -85,6 +238,7 @@ class _BookingListPageState extends State<BookingListPage> {
   }
 
   Future<void> _updateCurrentLocation() async {
+    if (!isOnline || isBlocked) return; // Save phone battery when offline or blocked!
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
@@ -116,9 +270,26 @@ class _BookingListPageState extends State<BookingListPage> {
       );
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body);
+        if (data["is_blocked"] == true || data["status"] == "blocked") {
+          if (mounted) {
+            setState(() {
+              isBlocked = true;
+              blockReason = data["block_reason"] ?? "Administrative restriction";
+              isOnline = false;
+              allBookings = [];
+              bookings = [];
+              totalTripCount = 0;
+              isLoading = false;
+            });
+            await secureStorage.write(key: "is_driver_online", value: "false");
+          }
+          return;
+        }
         if (mounted) {
           setState(() {
-            bookings = data["bookings"] ?? [];
+            isBlocked = false;
+            allBookings = data["bookings"] ?? [];
+            bookings = _applyFilters(allBookings);
             totalTripCount = (data["acceptedBookings"] as List).length;
             isLoading = false;
           });
@@ -128,6 +299,134 @@ class _BookingListPageState extends State<BookingListPage> {
       debugPrint("Fetch Error: $e");
       if (mounted) setState(() => isLoading = false);
     }
+  }
+
+  // --- FILTER & SORT LOGIC ---
+  List<dynamic> _applyFilters(List<dynamic> rawList) {
+    List<dynamic> list = List.from(rawList);
+    final String todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    // 1. Quick Filter Pills
+    if (selectedQuickFilter == 'Today') {
+      list = list.where((b) => (b['date'] ?? '').toString().trim() == todayStr).toList();
+    } else if (selectedQuickFilter == 'Advance') {
+      list = list.where((b) {
+        final d = (b['date'] ?? '').toString().trim();
+        return d.isNotEmpty && d.compareTo(todayStr) > 0;
+      }).toList();
+    } else if (selectedQuickFilter == 'Local-taxi') {
+      list = list.where((b) => (b['trip_type'] ?? '').toString().toLowerCase().contains('taxi')).toList();
+    } else if (selectedQuickFilter == 'One-way') {
+      list = list.where((b) {
+        final t = (b['trip_type'] ?? '').toString().toLowerCase();
+        return t.contains('one-way') || t.contains('oneway');
+      }).toList();
+    } else if (selectedQuickFilter == 'Round-Trip') {
+      list = list.where((b) => (b['trip_type'] ?? '').toString().toLowerCase().contains('round')).toList();
+    }
+
+    // 2. Date Filter (from bottom sheet modal)
+    if (selectedDateFilter == 'Today') {
+      list = list.where((b) => (b['date'] ?? '').toString().trim() == todayStr).toList();
+    } else if (selectedDateFilter == 'Advance') {
+      list = list.where((b) {
+        final d = (b['date'] ?? '').toString().trim();
+        return d.isNotEmpty && d.compareTo(todayStr) > 0;
+      }).toList();
+    } else if (selectedDateFilter == 'Custom' && customFilterDate != null) {
+      final String customStr = DateFormat('yyyy-MM-dd').format(customFilterDate!);
+      list = list.where((b) => (b['date'] ?? '').toString().trim() == customStr).toList();
+    }
+
+    // 3. Trip Type Filter (from modal)
+    if (selectedTripTypeFilter != 'All') {
+      final sel = selectedTripTypeFilter.toLowerCase();
+      list = list.where((b) {
+        final t = (b['trip_type'] ?? '').toString().toLowerCase();
+        return t.contains(sel);
+      }).toList();
+    }
+
+    // 4. Car Type Filter (from modal)
+    if (selectedCarTypeFilter != 'All') {
+      final selCar = selectedCarTypeFilter.toLowerCase();
+      list = list.where((b) {
+        final c = (b['car_type'] ?? '').toString().toLowerCase();
+        return c.contains(selCar);
+      }).toList();
+    }
+
+    // 5. Sorting
+    if (selectedSortFilter == 'PriceHighToLow') {
+      list.sort((a, b) {
+        final double pA = double.tryParse(a['vendor_amount']?.toString() ?? '0') ?? 0.0;
+        final double pB = double.tryParse(b['vendor_amount']?.toString() ?? '0') ?? 0.0;
+        return pB.compareTo(pA);
+      });
+    } else if (selectedSortFilter == 'DistanceNearest') {
+      list.sort((a, b) {
+        final double dA = double.tryParse(a['distance']?.toString() ?? '9999') ?? 9999.0;
+        final double dB = double.tryParse(b['distance']?.toString() ?? '9999') ?? 9999.0;
+        return dA.compareTo(dB);
+      });
+    } else if (selectedSortFilter == 'PickupTime') {
+      list.sort((a, b) {
+        final String tA = "${a['date'] ?? ''} ${a['time'] ?? ''}";
+        final String tB = "${b['date'] ?? ''} ${b['time'] ?? ''}";
+        return tA.compareTo(tB);
+      });
+    }
+
+    return list;
+  }
+
+  int get _activeFilterCount {
+    int count = 0;
+    if (selectedQuickFilter != 'All') count++;
+    if (selectedDateFilter != 'All') count++;
+    if (selectedTripTypeFilter != 'All') count++;
+    if (selectedCarTypeFilter != 'All') count++;
+    if (selectedSortFilter != 'Default') count++;
+    return count;
+  }
+
+  int _countForQuickFilter(String filterKey) {
+    final String todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    if (filterKey == 'All') return allBookings.length;
+    if (filterKey == 'Today') {
+      return allBookings.where((b) => (b['date'] ?? '').toString().trim() == todayStr).length;
+    }
+    if (filterKey == 'Advance') {
+      return allBookings.where((b) {
+        final d = (b['date'] ?? '').toString().trim();
+        return d.isNotEmpty && d.compareTo(todayStr) > 0;
+      }).length;
+    }
+    if (filterKey == 'Local-taxi') {
+      return allBookings.where((b) => (b['trip_type'] ?? '').toString().toLowerCase().contains('taxi')).length;
+    }
+    if (filterKey == 'One-way') {
+      return allBookings.where((b) {
+        final t = (b['trip_type'] ?? '').toString().toLowerCase();
+        return t.contains('one-way') || t.contains('oneway');
+      }).length;
+    }
+    if (filterKey == 'Round-Trip') {
+      return allBookings.where((b) => (b['trip_type'] ?? '').toString().toLowerCase().contains('round')).length;
+    }
+    return 0;
+  }
+
+  void _resetAllFilters() {
+    setState(() {
+      selectedQuickFilter = 'All';
+      selectedDateFilter = 'All';
+      customFilterDate = null;
+      selectedTripTypeFilter = 'All';
+      selectedCarTypeFilter = 'All';
+      selectedSortFilter = 'Default';
+      bookings = _applyFilters(allBookings);
+    });
   }
 
   // --- NAVIGATION HELPERS ---
@@ -173,11 +472,305 @@ class _BookingListPageState extends State<BookingListPage> {
         ],
       ),
       actions: [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: _buildOnlineOfflineToggle(),
+          ),
+        ),
         IconButton(
           icon: const Icon(Icons.refresh_rounded, color: Colors.grey),
           onPressed: () => fetchBookings(),
         ),
       ],
+    );
+  }
+
+  Widget _buildOnlineOfflineToggle() {
+    const Color activeGreen = Color(0xFF10B981);
+    const Color inactiveGrey = Color(0xFF6B7280);
+    const Color blockedRed = Color(0xFFDC2626);
+
+    return InkWell(
+      onTap: isBlocked
+          ? () {
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Account Blocked: $blockReason"),
+                  backgroundColor: const Color(0xFFDC2626),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          : (isTogglingStatus ? null : () => _toggleOnlineOffline(!isOnline)),
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isBlocked
+              ? const Color(0xFFFEF2F2)
+              : (isOnline ? const Color(0xFFECFDF5) : const Color(0xFFF3F4F6)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isBlocked
+                ? blockedRed
+                : (isOnline ? activeGreen : const Color(0xFFD1D5DB)),
+            width: 1.5,
+          ),
+          boxShadow: isBlocked
+              ? [
+                  BoxShadow(
+                    color: blockedRed.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : (isOnline
+                  ? [
+                      BoxShadow(
+                        color: activeGreen.withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : null),
+        ),
+        child: isTogglingStatus
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  isBlocked
+                      ? const Icon(Icons.block_rounded, color: Color(0xFFDC2626), size: 14)
+                      : RadarScanWidget(
+                          isOnline: isOnline,
+                          activeColor: activeGreen,
+                          inactiveColor: inactiveGrey,
+                        ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isBlocked ? "BLOCKED" : (isOnline ? "ONLINE" : "OFFLINE"),
+                    style: TextStyle(
+                      color: isBlocked
+                          ? const Color(0xFF991B1B)
+                          : (isOnline ? const Color(0xFF065F46) : const Color(0xFF374151)),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11.5,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildBlockedSuspensionBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFECACA), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFDC2626).withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEE2E2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.block_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "ACCOUNT SUSPENDED / BLOCKED",
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF991B1B),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      "All trip assignments and online status are restricted",
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFFB91C1C),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFEE2E2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "REASON SPECIFIED BY ADMIN:",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF7F1D1D),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  blockReason.isNotEmpty ? blockReason : "Administrative restriction applied by admin.",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                final Uri whatsappUrl = Uri.parse("https://wa.me/919847267465?text=Hello%20Rentox%20Support,%20my%20partner%20account%20has%20been%20suspended.%20Please%20assist.");
+                launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+              },
+              icon: const Icon(Icons.support_agent_rounded, size: 18),
+              label: const Text("CONTACT SUPPORT FOR RE-ACTIVATION"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfflineWarningBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFEF3C7),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.bedtime_rounded,
+              color: Color(0xFFD97706),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "You are OFFLINE",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  "Siren alerts & live GPS paused",
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFFB45309),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: isTogglingStatus ? null : () => _toggleOnlineOffline(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              minimumSize: const Size(0, 34),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: 0,
+            ),
+            child: const Text(
+              "GO ONLINE",
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.3),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -194,10 +787,12 @@ class _BookingListPageState extends State<BookingListPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 15),
+              if (isBlocked)
+                _buildBlockedSuspensionBanner()
+              else if (!isOnline)
+                _buildOfflineWarningBanner(),
               _buildActionGrid(),
               const SizedBox(height: 25),
-              _buildWhatsAppSection(),
-              const SizedBox(height: 30),
               _buildMarketHeader(),
               bookings.isEmpty ? _buildEmptyState() : _buildBookingList(),
               const SizedBox(height: 25),
@@ -271,47 +866,6 @@ class _BookingListPageState extends State<BookingListPage> {
     );
   }
 
-  Widget _buildWhatsAppSection() {
-    return InkWell(
-      onTap: () => _navigateTo(const NearbyTripsPage()),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-              colors: [Color(0xFF25D366), Color(0xFF128C7E)]),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-                color: const Color(0xFF128C7E).withOpacity(0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 8))
-          ],
-        ),
-        child: Row(
-          children: [
-            Image.asset('assets/WhatsApp_icon.png', height: 45, width: 45),
-            const SizedBox(width: 15),
-            const Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("WhatsApp Direct",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16)),
-                    Text("Direct access to 500+ groups",
-                        style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  ]),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                color: Colors.white, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildBookingCard(Map<String, dynamic> booking) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -332,17 +886,25 @@ class _BookingListPageState extends State<BookingListPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                      color: primaryAmber.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8)),
-                  child: Text(booking['trip_type'] ?? 'One-Way',
-                      style: TextStyle(
-                          color: primaryAmber,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11)),
+                Row(
+                  children: [
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                          color: primaryAmber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Text(booking['trip_type'] ?? 'One-Way',
+                          style: TextStyle(
+                              color: primaryAmber,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11)),
+                    ),
+                    if (booking['date'] != null && booking['date'].toString().isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      _buildDateChip(booking['date'].toString(), booking['time']?.toString()),
+                    ],
+                  ],
                 ),
                 Text("ID: ${booking['booking_id']}",
                     style: const TextStyle(
@@ -496,17 +1058,586 @@ class _BookingListPageState extends State<BookingListPage> {
   Widget _buildLoader() =>
       Center(child: CircularProgressIndicator(color: primaryAmber));
 
-  Widget _buildMarketHeader() => Padding(
-        padding: const EdgeInsets.only(bottom: 15),
-        child:
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text("Marketplace Feed",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          TextButton(
-              onPressed: () {},
-              child: Text("Filter", style: TextStyle(color: primaryAmber))),
-        ]),
-      );
+  Widget _buildDateChip(String dateStr, String? timeStr) {
+    final String todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final bool isToday = (dateStr.trim() == todayStr);
+
+    String formattedTime = '';
+    if (timeStr != null && timeStr.trim().isNotEmpty) {
+      try {
+        final parts = timeStr.trim().split(':');
+        if (parts.length >= 2) {
+          int hour = int.parse(parts[0]);
+          int min = int.parse(parts[1]);
+          final period = hour >= 12 ? 'PM' : 'AM';
+          if (hour > 12) hour -= 12;
+          if (hour == 0) hour = 12;
+          formattedTime = " • $hour:${min.toString().padLeft(2, '0')} $period";
+        }
+      } catch (_) {}
+    }
+
+    String displayDate = dateStr;
+    try {
+      final parsed = DateTime.parse(dateStr);
+      displayDate = DateFormat('dd MMM').format(parsed);
+    } catch (_) {}
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isToday ? const Color(0xFFEFF6FF) : const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isToday ? const Color(0xFFBFDBFE) : const Color(0xFFA7F3D0),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isToday ? Icons.bolt_rounded : Icons.event_available_rounded,
+            size: 13,
+            color: isToday ? const Color(0xFF2563EB) : const Color(0xFF059669),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isToday ? "Today$formattedTime" : "$displayDate$formattedTime",
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: isToday ? const Color(0xFF1E40AF) : const Color(0xFF065F46),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMarketHeader() {
+    final int activeCount = _activeFilterCount;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    "Marketplace Feed",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: primaryAmber.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      "${bookings.length}",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: darkCharcoal,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              InkWell(
+                onTap: _showFilterBottomSheet,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: activeCount > 0 ? primaryAmber : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: activeCount > 0 ? primaryAmber : Colors.grey[300]!,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.tune_rounded,
+                        size: 15,
+                        color: activeCount > 0 ? Colors.white : darkCharcoal,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        activeCount > 0 ? "Filter ($activeCount)" : "Filter",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: activeCount > 0 ? Colors.white : darkCharcoal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildQuickFilterChips(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickFilterChips() {
+    final chips = [
+      {'key': 'All', 'label': 'All Trips', 'icon': Icons.apps_rounded},
+      {'key': 'Today', 'label': 'Today', 'icon': Icons.bolt_rounded},
+      {'key': 'Advance', 'label': 'Advance', 'icon': Icons.calendar_month_rounded},
+      {'key': 'Local-taxi', 'label': 'Local Taxi', 'icon': Icons.local_taxi_rounded},
+      {'key': 'One-way', 'label': 'One-Way', 'icon': Icons.arrow_right_alt_rounded},
+      {'key': 'Round-Trip', 'label': 'Round-Trip', 'icon': Icons.sync_alt_rounded},
+    ];
+
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: chips.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final item = chips[index];
+          final String key = item['key'] as String;
+          final String label = item['label'] as String;
+          final IconData icon = item['icon'] as IconData;
+          final bool isSelected = (selectedQuickFilter == key);
+          final int count = _countForQuickFilter(key);
+
+          return InkWell(
+            onTap: () {
+              setState(() {
+                selectedQuickFilter = (isSelected && key != 'All') ? 'All' : key;
+                bookings = _applyFilters(allBookings);
+              });
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: isSelected ? darkCharcoal : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected ? darkCharcoal : Colors.grey[300]!,
+                  width: 1.2,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: isSelected ? primaryAmber : Colors.grey[700],
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected ? Colors.white : darkCharcoal,
+                    ),
+                  ),
+                  if (count > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isSelected ? primaryAmber : Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        "$count",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected ? darkCharcoal : Colors.grey[800],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showFilterBottomSheet() {
+    String tempDateFilter = selectedDateFilter;
+    DateTime? tempCustomDate = customFilterDate;
+    String tempTripType = selectedTripTypeFilter;
+    String tempCarType = selectedCarTypeFilter;
+    String tempSort = selectedSortFilter;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (sheetContext, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.78,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              "Filter & Sort Rides",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF212121),
+                              ),
+                            ),
+                            if (_activeFilterCount > 0) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: primaryAmber.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  "$_activeFilterCount Active",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: darkCharcoal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setModalState(() {
+                              tempDateFilter = 'All';
+                              tempCustomDate = null;
+                              tempTripType = 'All';
+                              tempCarType = 'All';
+                              tempSort = 'Default';
+                            });
+                            _resetAllFilters();
+                          },
+                          child: const Text(
+                            "Reset All",
+                            style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        // SECTION 1: DATE SCHEDULE
+                        _buildFilterSectionTitle("Date Schedule"),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildChoiceChip(
+                              label: "All Dates",
+                              isSelected: tempDateFilter == 'All',
+                              onTap: () => setModalState(() {
+                                tempDateFilter = 'All';
+                                tempCustomDate = null;
+                              }),
+                            ),
+                            _buildChoiceChip(
+                              label: "⚡ Today's Rides",
+                              isSelected: tempDateFilter == 'Today',
+                              onTap: () => setModalState(() {
+                                tempDateFilter = 'Today';
+                                tempCustomDate = null;
+                              }),
+                            ),
+                            _buildChoiceChip(
+                              label: "📅 Advance Bookings",
+                              isSelected: tempDateFilter == 'Advance',
+                              onTap: () => setModalState(() {
+                                tempDateFilter = 'Advance';
+                                tempCustomDate = null;
+                              }),
+                            ),
+                            _buildChoiceChip(
+                              label: tempCustomDate != null
+                                  ? "📆 ${DateFormat('dd MMM').format(tempCustomDate!)}"
+                                  : "📆 Pick Specific Date",
+                              isSelected: tempDateFilter == 'Custom',
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: tempCustomDate ?? DateTime.now(),
+                                  firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                                  lastDate: DateTime.now().add(const Duration(days: 90)),
+                                );
+                                if (picked != null) {
+                                  setModalState(() {
+                                    tempDateFilter = 'Custom';
+                                    tempCustomDate = picked;
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // SECTION 2: TRIP CATEGORY
+                        _buildFilterSectionTitle("Trip Category"),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildChoiceChip(
+                              label: "All Categories",
+                              isSelected: tempTripType == 'All',
+                              onTap: () => setModalState(() => tempTripType = 'All'),
+                            ),
+                            _buildChoiceChip(
+                              label: "🚕 Local Taxi",
+                              isSelected: tempTripType == 'Local-taxi',
+                              onTap: () => setModalState(() => tempTripType = 'Local-taxi'),
+                            ),
+                            _buildChoiceChip(
+                              label: "🛣️ One-Way",
+                              isSelected: tempTripType == 'One-way',
+                              onTap: () => setModalState(() => tempTripType = 'One-way'),
+                            ),
+                            _buildChoiceChip(
+                              label: "🔄 Round-Trip",
+                              isSelected: tempTripType == 'Round-Trip',
+                              onTap: () => setModalState(() => tempTripType = 'Round-Trip'),
+                            ),
+                            _buildChoiceChip(
+                              label: "⏱️ Local Duty",
+                              isSelected: tempTripType == 'Local-duty',
+                              onTap: () => setModalState(() => tempTripType = 'Local-duty'),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // SECTION 3: CAR CATEGORY
+                        _buildFilterSectionTitle("Car / Vehicle Type"),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildChoiceChip(
+                              label: "All Vehicles",
+                              isSelected: tempCarType == 'All',
+                              onTap: () => setModalState(() => tempCarType = 'All'),
+                            ),
+                            _buildChoiceChip(
+                              label: "Sedan",
+                              isSelected: tempCarType == 'Sedan',
+                              onTap: () => setModalState(() => tempCarType = 'Sedan'),
+                            ),
+                            _buildChoiceChip(
+                              label: "SUV",
+                              isSelected: tempCarType == 'SUV',
+                              onTap: () => setModalState(() => tempCarType = 'SUV'),
+                            ),
+                            _buildChoiceChip(
+                              label: "Hatchback",
+                              isSelected: tempCarType == 'Hatchback',
+                              onTap: () => setModalState(() => tempCarType = 'Hatchback'),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // SECTION 4: SORTING
+                        _buildFilterSectionTitle("Sort Trips By"),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildChoiceChip(
+                              label: "Default",
+                              isSelected: tempSort == 'Default',
+                              onTap: () => setModalState(() => tempSort = 'Default'),
+                            ),
+                            _buildChoiceChip(
+                              label: "💰 Highest Earnings",
+                              isSelected: tempSort == 'PriceHighToLow',
+                              onTap: () => setModalState(() => tempSort = 'PriceHighToLow'),
+                            ),
+                            _buildChoiceChip(
+                              label: "📍 Nearest Distance",
+                              isSelected: tempSort == 'DistanceNearest',
+                              onTap: () => setModalState(() => tempSort = 'DistanceNearest'),
+                            ),
+                            _buildChoiceChip(
+                              label: "⏰ Earliest Pickup",
+                              isSelected: tempSort == 'PickupTime',
+                              onTap: () => setModalState(() => tempSort = 'PickupTime'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          offset: const Offset(0, -4),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: SafeArea(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  selectedDateFilter = tempDateFilter;
+                                  customFilterDate = tempCustomDate;
+                                  selectedTripTypeFilter = tempTripType;
+                                  selectedCarTypeFilter = tempCarType;
+                                  selectedSortFilter = tempSort;
+                                  bookings = _applyFilters(allBookings);
+                                });
+                                Navigator.pop(ctx);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryAmber,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                "Apply Filters",
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF111827),
+      ),
+    );
+  }
+
+  Widget _buildChoiceChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? darkCharcoal : Colors.grey[100],
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? darkCharcoal : Colors.grey[300]!,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : const Color(0xFF374151),
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildEmptyState() => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min, // Takes only as much height as needed
@@ -550,5 +1681,207 @@ class _BookingListPageState extends State<BookingListPage> {
               ))
           .toList(),
     );
+  }
+}
+
+// ================= RADAR SCAN INDICATOR =================
+
+class RadarScanWidget extends StatefulWidget {
+  final bool isOnline;
+  final Color activeColor;
+  final Color inactiveColor;
+
+  const RadarScanWidget({
+    super.key,
+    required this.isOnline,
+    this.activeColor = const Color(0xFF10B981),
+    this.inactiveColor = const Color(0xFF6B7280),
+  });
+
+  @override
+  State<RadarScanWidget> createState() => _RadarScanWidgetState();
+}
+
+class _RadarScanWidgetState extends State<RadarScanWidget>
+    with TickerProviderStateMixin {
+  late AnimationController _sweepController;
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _sweepController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+
+    if (widget.isOnline) {
+      _sweepController.repeat();
+      _pulseController.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(RadarScanWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isOnline) {
+      if (!_sweepController.isAnimating) _sweepController.repeat();
+      if (!_pulseController.isAnimating) _pulseController.repeat();
+    } else {
+      _sweepController.stop();
+      _pulseController.stop();
+      _sweepController.reset();
+      _pulseController.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _sweepController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isOnline) {
+      return Container(
+        width: 22,
+        height: 22,
+        alignment: Alignment.center,
+        child: Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: widget.inactiveColor,
+            shape: BoxShape.circle,
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 1. Expanding radar pulse wave
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final double t = _pulseController.value;
+              return Container(
+                width: 14 + (t * 10),
+                height: 14 + (t * 10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: widget.activeColor.withValues(alpha: (1.0 - t) * 0.7),
+                    width: 1.5,
+                  ),
+                ),
+              );
+            },
+          ),
+          // 2. Rotating Radar Sweep Scope
+          AnimatedBuilder(
+            animation: _sweepController,
+            builder: (context, child) {
+              return CustomPaint(
+                size: const Size(20, 20),
+                painter: RadarScanPainter(
+                  angle: _sweepController.value * 2 * pi,
+                  scanColor: widget.activeColor,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RadarScanPainter extends CustomPainter {
+  final double angle;
+  final Color scanColor;
+
+  RadarScanPainter({
+    required this.angle,
+    required this.scanColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // 1. Radar Scope Base (dark emerald tint)
+    final bgPaint = Paint()
+      ..color = scanColor.withValues(alpha: 0.15)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // 2. Concentric Radar Grid Rings
+    final ringPaint = Paint()
+      ..color = scanColor.withValues(alpha: 0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawCircle(center, radius, ringPaint);
+    canvas.drawCircle(center, radius * 0.55, ringPaint);
+
+    // 3. Radar Crosshairs
+    final crosshairPaint = Paint()
+      ..color = scanColor.withValues(alpha: 0.25)
+      ..strokeWidth = 0.8;
+    canvas.drawLine(Offset(center.dx - radius, center.dy), Offset(center.dx + radius, center.dy), crosshairPaint);
+    canvas.drawLine(Offset(center.dx, center.dy - radius), Offset(center.dx, center.dy + radius), crosshairPaint);
+
+    // 4. Rotating Sweep Beam with 90-degree gradient fan
+    final sweepRect = Rect.fromCircle(center: center, radius: radius);
+    final sweepGradient = SweepGradient(
+      startAngle: 0.0,
+      endAngle: pi / 2,
+      colors: [
+        scanColor.withValues(alpha: 0.0),
+        scanColor.withValues(alpha: 0.55),
+      ],
+      transform: GradientRotation(angle - (pi / 2)),
+    );
+
+    final sweepPaint = Paint()
+      ..shader = sweepGradient.createShader(sweepRect)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius, sweepPaint);
+
+    // 5. Leading Sweep Beam Needle (Bright scanning line)
+    final needlePaint = Paint()
+      ..color = scanColor
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+    final endX = center.dx + radius * cos(angle);
+    final endY = center.dy + radius * sin(angle);
+    canvas.drawLine(center, Offset(endX, endY), needlePaint);
+
+    // 6. Glowing Center Beacon Core
+    final corePaint = Paint()
+      ..color = scanColor
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, 2.5, corePaint);
+
+    final glowPaint = Paint()
+      ..color = scanColor.withValues(alpha: 0.7)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, 4.0, glowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant RadarScanPainter oldDelegate) {
+    return oldDelegate.angle != angle;
   }
 }
