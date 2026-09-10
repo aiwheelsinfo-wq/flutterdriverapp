@@ -3,13 +3,14 @@ import 'package:agnidriver2025/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'checkAndRoot.dart';
 import 'api_config.dart';
 import 'settlements_page.dart';
 import 'bank_details_page.dart';
 import 'booking_list.dart';
 import 'car_list.dart';
 import 'driver_list.dart';
+import 'whatsapp_booking_list.dart';
+import 'vendor_wallet_page.dart';
 
 
 class OwnerProfileScreen extends StatefulWidget {
@@ -26,6 +27,10 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
   bool documentCard = false;
   String? userType;
 
+  // Alert & Sound Preferences
+  bool isAlertVibrationEnabled = true;
+  bool isAlertSoundEnabled = true;
+
   // Theme Colors
   static const Color primaryAmber = Color(0xFFFFB300);
   static const Color accentAmber = Color(0xFFFF8F00);
@@ -35,7 +40,91 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _loadAlertPreferences();
     fetchOwnerDetails();
+  }
+
+  Future<void> _loadAlertPreferences() async {
+    try {
+      final vib = await secureStorage.read(key: "alert_vibration_enabled");
+      final snd = await secureStorage.read(key: "alert_sound_enabled");
+      if (mounted) {
+        setState(() {
+          isAlertVibrationEnabled = (vib != 'false');
+          isAlertSoundEnabled = (snd != 'false');
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading alert preferences: $e");
+    }
+  }
+
+  Future<void> _toggleAlertVibration(bool val) async {
+    setState(() => isAlertVibrationEnabled = val);
+    await secureStorage.write(key: "alert_vibration_enabled", value: val.toString());
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                val ? Icons.vibration_rounded : Icons.notifications_off_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  val
+                      ? "Trip alert vibration turned ON"
+                      : "Trip alert vibration turned OFF (Quiet screen-off alerts)",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: val ? const Color(0xFF059669) : const Color(0xFF374151),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _toggleAlertSound(bool val) async {
+    setState(() => isAlertSoundEnabled = val);
+    await secureStorage.write(key: "alert_sound_enabled", value: val.toString());
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                val ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  val
+                      ? "Trip alert siren sound turned ON"
+                      : "Trip alert siren sound turned OFF (Visual only)",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: val ? const Color(0xFF059669) : const Color(0xFF374151),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 
   Future<void> fetchOwnerDetails() async {
@@ -142,6 +231,23 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                     _buildSectionTitle("Payments & Settlements"),
                     _buildInfoCard([
                       ListTile(
+                        leading: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF10B981), size: 22),
+                        title: const Text("Vendor Prepaid Wallet", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: charcoal)),
+                        subtitle: const Text("View balance, recharge via UPI & track trips", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => VendorWalletPage(
+                                vendorPhone: ownerData!["phone_number"] ?? "",
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1, indent: 56, endIndent: 20),
+                      ListTile(
                         leading: const Icon(Icons.account_balance_wallet, color: primaryAmber, size: 20),
                         title: const Text("Vendor Settlements", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: charcoal)),
                         subtitle: const Text("Track trip advance settlements", style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -181,6 +287,102 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                             }
                           });
                         },
+                      ),
+                    ]),
+                    const SizedBox(height: 20),
+                    _buildSectionTitle("Driver & Vendor Community"),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const NearbyTripsPage(),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF128C7E).withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Image.asset('assets/WhatsApp_icon.png', height: 42, width: 42),
+                            const SizedBox(width: 14),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "WhatsApp Direct",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    "Direct access to 500+ driver & vendor groups",
+                                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionTitle("Alert & Notification Preferences"),
+                    _buildInfoCard([
+                      SwitchListTile.adaptive(
+                        value: isAlertVibrationEnabled,
+                        activeColor: primaryAmber,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                        secondary: const Icon(Icons.vibration_rounded, color: primaryAmber, size: 24),
+                        title: const Text(
+                          "Trip Alert Vibration",
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: charcoal),
+                        ),
+                        subtitle: const Text(
+                          "Vibrate on incoming rides (even when screen is off)",
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        onChanged: _toggleAlertVibration,
+                      ),
+                      const Divider(height: 1, indent: 56, endIndent: 20),
+                      SwitchListTile.adaptive(
+                        value: isAlertSoundEnabled,
+                        activeColor: primaryAmber,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                        secondary: const Icon(Icons.volume_up_rounded, color: primaryAmber, size: 24),
+                        title: const Text(
+                          "Loud Siren Alarm",
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: charcoal),
+                        ),
+                        subtitle: const Text(
+                          "Play urgent siren ringtone for new bookings",
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        onChanged: _toggleAlertSound,
                       ),
                     ]),
                     const SizedBox(height: 20),

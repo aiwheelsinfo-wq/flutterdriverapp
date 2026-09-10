@@ -27,6 +27,7 @@ import 'settlements_page.dart';
 import 'package:geolocator/geolocator.dart';
 import 'services/overlay_service.dart';
 import 'support_chat_page.dart';
+import 'vendor_wallet_page.dart';
 
 class BookingListPage extends StatefulWidget {
   final String phoneNumber;
@@ -835,12 +836,15 @@ class _BookingListPageState extends State<BookingListPage> {
       children: [
         _actionChip("Active", Icons.route_rounded, totalTripCount,
             () => _navigateTo(const MergedBookingsPage())),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         _actionChip("History", Icons.history_rounded, 0,
             () => _navigateTo(const CompleatedList())),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         _actionChip("Docs", Icons.folder_open_rounded, 0,
             () => _navigateTo(const DocumentExperedPage())),
+        const SizedBox(width: 8),
+        _actionChip("Wallet", Icons.account_balance_wallet_rounded, 0,
+            () => _navigateTo(VendorWalletPage(vendorPhone: widget.phoneNumber))),
       ],
     );
   }

@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_config.dart';
 import 'booking_list.dart';
+import 'vendor_wallet_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // Brand Color Palette
@@ -481,11 +482,66 @@ class _DriverTripPageState extends State<DriverTripPage>
               },
             );
           }
+        } else {
+          if (mounted) {
+            if (jsonResponse["status"] == "low_wallet_balance") {
+              _showLowWalletBalanceDialog(jsonResponse["message"] ?? "Insufficient wallet balance.");
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(jsonResponse["message"] ?? "Could not accept booking")),
+              );
+            }
+          }
         }
       }
     } catch (e) {
       debugPrint("Accept trip error: $e");
     }
+  }
+
+  void _showLowWalletBalanceDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: const Color(0xFF1E293B),
+        title: Row(
+          children: const [
+            Icon(Icons.account_balance_wallet_outlined, color: Color(0xFFF59E0B), size: 26),
+            SizedBox(width: 10),
+            Text("Recharge Required", style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel", style: TextStyle(color: Colors.white60)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => VendorWalletPage(vendorPhone: storedPhoneNumber),
+                ),
+              );
+            },
+            icon: const Icon(Icons.add, color: Colors.black, size: 18),
+            label: const Text("Recharge Now", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -580,6 +636,7 @@ class _DriverTripPageState extends State<DriverTripPage>
                       agniAmount: agniAmount,
                       paidAmount: paidAmount,
                       baseFare: baseFare,
+                      tripType: tripType,
                     ),
 
                     // 6. Fleet Asset Assignment (If vendor has vehicles or drivers)
@@ -1080,7 +1137,16 @@ class _DriverTripPageState extends State<DriverTripPage>
     required double agniAmount,
     required double paidAmount,
     required double baseFare,
+    String tripType = '',
   }) {
+    final double rawBase = totalFare > 0 ? totalFare : baseFare;
+    final bool isOneWay = tripType.toLowerCase().contains('one-way') || tripType.toLowerCase().contains('oneway');
+    final double gstAmt = isOneWay ? (rawBase * 0.05) : 0.0;
+    final double totalCustomerFare = rawBase + gstAmt;
+    final double remainingCollect = paidAmount > 0
+        ? ((totalCustomerFare - paidAmount) > 0 ? (totalCustomerFare - paidAmount) : 0.0)
+        : totalCustomerFare;
+
     return Container(
       decoration: BoxDecoration(
         color: kWhite,
@@ -1159,15 +1225,24 @@ class _DriverTripPageState extends State<DriverTripPage>
                 children: [
                   const Divider(height: 1, color: kBorderGray),
                   const SizedBox(height: 12),
-                  _buildBreakdownRow("Customer Fare",
-                      "₹${(totalFare > 0 ? totalFare : baseFare).toStringAsFixed(2)}"),
+                  _buildBreakdownRow("Base Customer Fare",
+                      "₹${rawBase.toStringAsFixed(2)}"),
+                  if (gstAmt > 0)
+                    _buildBreakdownRow("GST (5%)",
+                        "₹${gstAmt.toStringAsFixed(2)}"),
+                  if (gstAmt > 0)
+                    _buildBreakdownRow("Total Fare (incl. GST)",
+                        "₹${totalCustomerFare.toStringAsFixed(2)}"),
                   if (agniAmount > 0)
                     _buildBreakdownRow("Platform / Commission",
                         "- ₹${agniAmount.toStringAsFixed(2)}",
                         isDeduction: true),
-                  if (paidAmount > 0)
+                  if (paidAmount > 0) ...[
                     _buildBreakdownRow("Advance / Online Paid",
                         "₹${paidAmount.toStringAsFixed(2)}"),
+                    _buildBreakdownRow("Remaining to Collect",
+                        "₹${remainingCollect.toStringAsFixed(2)}"),
+                  ],
                   const SizedBox(height: 8),
                   const Divider(height: 1, color: kBorderGray),
                   const SizedBox(height: 10),
