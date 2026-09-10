@@ -505,27 +505,29 @@ class _DriverTripPageState extends State<DriverTripPage>
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Colors.white,
         title: Row(
           children: const [
-            Icon(Icons.account_balance_wallet_outlined, color: Color(0xFFF59E0B), size: 26),
+            Icon(Icons.account_balance_wallet_rounded, color: Color(0xFFFF8F00), size: 26),
             SizedBox(width: 10),
-            Text("Recharge Required", style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+            Text("Recharge Required", style: TextStyle(color: Color(0xFF263238), fontSize: 17, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Text(
           message,
-          style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
+          style: const TextStyle(color: Color(0xFF546E7A), fontSize: 13.5, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel", style: TextStyle(color: Colors.white60)),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
+              backgroundColor: const Color(0xFFFF8F00),
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
             ),
             onPressed: () {
               Navigator.pop(ctx);
@@ -536,8 +538,8 @@ class _DriverTripPageState extends State<DriverTripPage>
                 ),
               );
             },
-            icon: const Icon(Icons.add, color: Colors.black, size: 18),
-            label: const Text("Recharge Now", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
+            label: const Text("Recharge Now", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

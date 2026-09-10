@@ -18,6 +18,13 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   late Razorpay _razorpay;
 
+  // App Theme Colors (White & Orange Theme)
+  static const Color accentAmber = Color(0xFFFF8F00);
+  static const Color darkOrange = Color(0xFFE65100);
+  static const Color charcoal = Color(0xFF263238);
+  static const Color bgLight = Color(0xFFFFFBF0);
+  static const Color cardBorder = Color(0xFFFFECB3);
+
   String _phone = '';
   double _walletBalance = 0.0;
   double _minWalletBalance = 0.0;
@@ -131,7 +138,7 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
         'contact': _phone,
       },
       'theme': {
-        'color': '#10B981',
+        'color': '#FF8F00',
       },
       'external': {
         'wallets': ['paytm']
@@ -215,7 +222,7 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -228,39 +235,65 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
               padding: EdgeInsets.only(
                 left: 20,
                 right: 20,
-                top: 24,
+                top: 16,
                 bottom: MediaQuery.of(context).viewInsets.bottom + 24,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Drag Handle
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        "Recharge Wallet",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: accentAmber.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.add_card_rounded, color: accentAmber, size: 22),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            "Recharge Wallet",
+                            style: TextStyle(
+                              color: charcoal,
+                              fontSize: 19,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white70),
+                        icon: const Icon(Icons.close, color: Colors.black54),
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Recharge your prepaid wallet to accept Local Taxi bookings. Company commission ($_commissionRate%) will be deducted automatically from this balance after trips are completed.",
-                    style: TextStyle(color: Colors.grey[400], fontSize: 13, height: 1.4),
+                    "Recharge your prepaid wallet to accept Local Taxi bookings. Company commission ($_commissionRate%) is automatically deducted from this wallet after trips.",
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13, height: 1.4),
                   ),
                   const SizedBox(height: 20),
                   const Text(
                     "Select Quick Amount",
-                    style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: charcoal, fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -278,18 +311,27 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFF10B981) : const Color(0xFF334155),
+                              color: isSelected ? accentAmber : Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: isSelected ? const Color(0xFF34D399) : Colors.transparent,
+                                color: isSelected ? accentAmber : Colors.grey.shade300,
                                 width: 1.5,
                               ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: accentAmber.withValues(alpha: 0.3),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      )
+                                    ]
+                                  : null,
                             ),
                             alignment: Alignment.center,
                             child: Text(
                               "₹${amt.toInt()}",
                               style: TextStyle(
-                                color: isSelected ? Colors.black : Colors.white,
+                                color: isSelected ? Colors.white : charcoal,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                               ),
@@ -299,24 +341,29 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
                   TextField(
                     controller: _customAmountController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: charcoal, fontSize: 18, fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.currency_rupee, color: Color(0xFF10B981)),
+                      prefixIcon: const Icon(Icons.currency_rupee, color: accentAmber),
                       labelText: "Or Enter Custom Amount",
-                      labelStyle: TextStyle(color: Colors.grey[400]),
+                      labelStyle: TextStyle(color: Colors.grey[600]),
                       filled: true,
-                      fillColor: const Color(0xFF0F172A),
+                      fillColor: bgLight,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                        borderSide: const BorderSide(color: accentAmber, width: 1.8),
                       ),
                     ),
                     onChanged: (val) {
@@ -326,15 +373,17 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                       }
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
+                        backgroundColor: accentAmber,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        elevation: 0,
+                        elevation: 2,
+                        shadowColor: accentAmber.withValues(alpha: 0.4),
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -343,7 +392,7 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                       child: Text(
                         "Proceed to Pay ₹${_selectedRechargeAmount.toStringAsFixed(0)}",
                         style: const TextStyle(
-                          color: Colors.black,
+                          color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -362,16 +411,24 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: bgLight,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: Colors.white,
+        foregroundColor: charcoal,
         elevation: 0,
-        title: const Text(
-          "Partner Wallet",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          "Vendor Prepaid Wallet",
+          style: TextStyle(
+            color: charcoal,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -383,36 +440,32 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)))
+          ? const Center(child: CircularProgressIndicator(color: accentAmber))
           : RefreshIndicator(
-              color: const Color(0xFF10B981),
+              color: accentAmber,
               onRefresh: _fetchWalletDetails,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ================= Balance Card =================
+                    // ================= Primary Balance Card (Orange Theme) =================
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                          colors: [Color(0xFFFF9800), Color(0xFFFF6D00)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: _isEligible ? const Color(0xFF10B981).withOpacity(0.3) : const Color(0xFFEF4444).withOpacity(0.3),
-                          width: 1.5,
-                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.4),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                            color: const Color(0xFFFF6D00).withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
                           )
                         ],
                       ),
@@ -422,10 +475,10 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
+                              const Text(
                                 "AVAILABLE BALANCE",
                                 style: TextStyle(
-                                  color: Colors.grey[400],
+                                  color: Colors.white70,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1.2,
@@ -434,27 +487,25 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: _isEligible
-                                      ? const Color(0xFF10B981).withOpacity(0.15)
-                                      : const Color(0xFFEF4444).withOpacity(0.15),
+                                  color: Colors.white.withValues(alpha: 0.22),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: _isEligible ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                    color: Colors.white.withValues(alpha: 0.4),
                                   ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      _isEligible ? Icons.check_circle : Icons.warning_amber_rounded,
+                                      _isEligible ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
                                       size: 13,
-                                      color: _isEligible ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                      color: Colors.white,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       _isEligible ? "Local Taxi Ready" : "Recharge Needed",
-                                      style: TextStyle(
-                                        color: _isEligible ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                      style: const TextStyle(
+                                        color: Colors.white,
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -477,10 +528,10 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                           const SizedBox(height: 8),
                           Text(
                             _isEligible
-                                ? "You can accept Local Taxi trips. 10% platform share will be deducted upon trip completion."
-                                : "Balance is ₹${_walletBalance.toStringAsFixed(2)}. Please recharge to accept Local Taxi bookings.",
+                                ? "Your wallet has sufficient funds to accept Local Taxi bookings. Platform commission will be auto-deducted after trip completion."
+                                : "Balance is ₹${_walletBalance.toStringAsFixed(2)}. Please recharge minimum ₹${_minWalletBalance.toStringAsFixed(0)} to accept Local Taxi bookings.",
                             style: TextStyle(
-                              color: _isEligible ? Colors.grey[400] : const Color(0xFFFCA5A5),
+                              color: Colors.white.withValues(alpha: 0.92),
                               fontSize: 12.5,
                               height: 1.35,
                             ),
@@ -491,7 +542,8 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                             height: 48,
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF10B981),
+                                backgroundColor: Colors.white,
+                                foregroundColor: darkOrange,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 elevation: 0,
                               ),
@@ -500,13 +552,13 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                                   ? const SizedBox(
                                       width: 18,
                                       height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: darkOrange),
                                     )
-                                  : const Icon(Icons.add_circle_outline, color: Colors.black),
+                                  : const Icon(Icons.add_circle_rounded, color: darkOrange),
                               label: Text(
                                 _isRecharging ? "Opening Gateway..." : "Recharge Wallet",
                                 style: const TextStyle(
-                                  color: Colors.black,
+                                  color: darkOrange,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
                                 ),
@@ -517,25 +569,103 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-                    // ================= Info Banner =================
+                    // ================= Quick Parameters Row =================
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: cardBorder),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Min. Balance",
+                                  style: TextStyle(color: Colors.grey, fontSize: 11.5, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "₹${_minWalletBalance.toStringAsFixed(0)}",
+                                  style: const TextStyle(color: charcoal, fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: cardBorder),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Trip Commission",
+                                  style: TextStyle(color: Colors.grey, fontSize: 11.5, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "${_commissionRate.toStringAsFixed(0)}%",
+                                  style: const TextStyle(color: accentAmber, fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ================= Info Card =================
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white10),
+                        border: Border.all(color: cardBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
                       ),
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF3B82F6).withOpacity(0.15),
+                              color: accentAmber.withValues(alpha: 0.12),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.info_outline, color: Color(0xFF60A5FA), size: 20),
+                            child: const Icon(Icons.info_outline_rounded, color: accentAmber, size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -544,12 +674,12 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                               children: [
                                 const Text(
                                   "How Local Taxi Commission Works",
-                                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                  style: TextStyle(color: charcoal, fontSize: 13, fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 3),
                                 Text(
-                                  "Passenger pays you 100% in Cash/UPI at trip end. The platform commission ($_commissionRate%) is automatically deducted from this wallet.",
-                                  style: TextStyle(color: Colors.grey[400], fontSize: 11.5, height: 1.3),
+                                  "Passenger pays you 100% in Cash/UPI at trip completion. The company platform commission ($_commissionRate%) is deducted automatically from this wallet.",
+                                  style: TextStyle(color: Colors.grey[700], fontSize: 11.5, height: 1.35),
                                 ),
                               ],
                             ),
@@ -558,23 +688,30 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 22),
 
-                    // ================= Transaction History =================
+                    // ================= Transaction History Header =================
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
                           "Wallet Ledger",
                           style: TextStyle(
-                            color: Colors.white,
+                            color: charcoal,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          "${_transactions.length} entries",
-                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: accentAmber.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            "${_transactions.length} entries",
+                            style: const TextStyle(color: accentAmber, fontSize: 11.5, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
@@ -585,18 +722,18 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 40),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B),
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white10),
+                          border: Border.all(color: cardBorder),
                         ),
                         alignment: Alignment.center,
                         child: Column(
                           children: [
-                            Icon(Icons.receipt_long_outlined, size: 42, color: Colors.grey[600]),
+                            Icon(Icons.receipt_long_outlined, size: 42, color: Colors.grey[400]),
                             const SizedBox(height: 10),
                             Text(
                               "No transactions yet",
-                              style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                              style: TextStyle(color: Colors.grey[600], fontSize: 14),
                             ),
                           ],
                         ),
@@ -617,9 +754,16 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.white.withOpacity(0.05)),
+                              border: Border.all(color: Colors.grey.shade200),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.025),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -627,13 +771,13 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
                                     color: isCredit
-                                        ? const Color(0xFF10B981).withOpacity(0.15)
-                                        : const Color(0xFFEF4444).withOpacity(0.15),
+                                        ? Colors.green.shade50
+                                        : const Color(0xFFFFF3E0),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-                                    color: isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                    isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                                    color: isCredit ? Colors.green.shade700 : darkOrange,
                                     size: 18,
                                   ),
                                 ),
@@ -645,7 +789,7 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                                       Text(
                                         desc,
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color: charcoal,
                                           fontSize: 13.5,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -663,7 +807,7 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                                 Text(
                                   "${isCredit ? '+' : '-'}₹${amt.toStringAsFixed(2)}",
                                   style: TextStyle(
-                                    color: isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                    color: isCredit ? Colors.green.shade700 : darkOrange,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
                                   ),

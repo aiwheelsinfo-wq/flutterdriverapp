@@ -9,6 +9,7 @@ import '../api_config.dart';
 import '../booking_list.dart';
 import '../main.dart';
 import '../trip_accepting.dart';
+import '../vendor_wallet_page.dart';
 
 class RideRequestDialog extends StatefulWidget {
   final String bookingId;
@@ -16,6 +17,7 @@ class RideRequestDialog extends StatefulWidget {
   final String pickupLocation;
   final String dropLocation;
   final String vendorAmount;
+  final int countdownSeconds;
 
   const RideRequestDialog({
     super.key,
@@ -24,6 +26,7 @@ class RideRequestDialog extends StatefulWidget {
     required this.pickupLocation,
     required this.dropLocation,
     required this.vendorAmount,
+    this.countdownSeconds = 45,
   });
 
   static Future<void> show(
@@ -33,6 +36,7 @@ class RideRequestDialog extends StatefulWidget {
     required String pickupLocation,
     required String dropLocation,
     required String vendorAmount,
+    int countdownSeconds = 45,
   }) async {
     await showGeneralDialog(
       context: context,
@@ -47,6 +51,7 @@ class RideRequestDialog extends StatefulWidget {
           pickupLocation: pickupLocation,
           dropLocation: dropLocation,
           vendorAmount: vendorAmount,
+          countdownSeconds: countdownSeconds,
         );
       },
       transitionBuilder: (ctx, anim1, anim2, child) {
@@ -67,8 +72,7 @@ class RideRequestDialog extends StatefulWidget {
 
 class _RideRequestDialogState extends State<RideRequestDialog>
     with SingleTickerProviderStateMixin {
-  static const int _totalSeconds = 45;
-  int _remainingSeconds = _totalSeconds;
+  late int _remainingSeconds;
   Timer? _countdownTimer;
   late AnimationController _progressController;
 
@@ -85,15 +89,17 @@ class _RideRequestDialogState extends State<RideRequestDialog>
 
   bool isLoadingAssets = true;
   bool isAccepting = false;
+  bool _isVibrationEnabled = true;
 
   @override
   void initState() {
     super.initState();
-    _playAlertHaptic();
+    _remainingSeconds = widget.countdownSeconds;
+    _checkVibrationPref();
 
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: _totalSeconds),
+      duration: Duration(seconds: widget.countdownSeconds),
     )..forward();
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -114,7 +120,22 @@ class _RideRequestDialogState extends State<RideRequestDialog>
     _fetchAssets();
   }
 
+  Future<void> _checkVibrationPref() async {
+    try {
+      final vib = await _storage.read(key: "alert_vibration_enabled");
+      if (mounted) {
+        setState(() {
+          _isVibrationEnabled = (vib != 'false');
+        });
+        if (_isVibrationEnabled) {
+          _playAlertHaptic();
+        }
+      }
+    } catch (_) {}
+  }
+
   void _playAlertHaptic() {
+    if (!_isVibrationEnabled) return;
     try {
       HapticFeedback.heavyImpact();
     } catch (_) {}
@@ -307,13 +328,17 @@ class _RideRequestDialogState extends State<RideRequestDialog>
           return;
         } else {
           final msg = jsonResponse["message"] ?? "Failed to accept trip.";
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(msg),
-              backgroundColor: const Color(0xFFEF4444),
-            ),
-          );
-          _resumeCountdownIfNeeded();
+          if (jsonResponse["status"] == "low_wallet_balance") {
+            _showLowWalletBalanceDialog(msg);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(msg),
+                backgroundColor: const Color(0xFFEF4444),
+              ),
+            );
+            _resumeCountdownIfNeeded();
+          }
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -359,6 +384,57 @@ class _RideRequestDialogState extends State<RideRequestDialog>
         }
       });
     }
+  }
+
+  void _showLowWalletBalanceDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        title: Row(
+          children: const [
+            Icon(Icons.account_balance_wallet_rounded, color: Color(0xFFFF8F00), size: 26),
+            SizedBox(width: 10),
+            Text("Recharge Required", style: TextStyle(color: Color(0xFF263238), fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Color(0xFF546E7A), fontSize: 13.5, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _resumeCountdownIfNeeded();
+            },
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF8F00),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.of(context, rootNavigator: true).pop();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => VendorWalletPage(vendorPhone: _storedPhoneNumber),
+                ),
+              );
+            },
+            icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
+            label: const Text("Recharge Now", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSuccessConfirmation({
