@@ -194,6 +194,14 @@ class _InvoicelistState extends State<Drivercomleatedlist> {
                                               double vendorEarnings = baseTripFare * 0.90;
                                               return "₹${vendorEarnings.toStringAsFixed(2)}";
                                             }
+                                            if (tType.contains('local') && tType.contains('taxi')) {
+                                              double vAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                                              if (vAmt == 0) {
+                                                double fare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                                                vAmt = fare * 0.90;
+                                              }
+                                              return "₹${vAmt.toStringAsFixed(2)}";
+                                            }
                                             return "₹${booking['vendor_amount'].toString()}";
                                           }(),
                                           style: const TextStyle(fontSize: 20),

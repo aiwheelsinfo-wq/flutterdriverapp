@@ -978,11 +978,23 @@ class _BookingListPageState extends State<BookingListPage> {
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text("Partner Earning",
                         style: TextStyle(color: Colors.grey, fontSize: 11)),
-                    Text("₹${booking['vendor_amount']}",
-                        style: TextStyle(
-                            color: darkCharcoal,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20)),
+                    Text(
+                      () {
+                        double vAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                        if (vAmt > 0) {
+                          return "₹${vAmt.toStringAsFixed(0)}";
+                        }
+                        double tAmt = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        if (tAmt > 0) {
+                          return "₹${(tAmt * 0.90).toStringAsFixed(0)}";
+                        }
+                        return "₹${booking['vendor_amount'] ?? '0'}";
+                      }(),
+                      style: TextStyle(
+                          color: darkCharcoal,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20),
+                    ),
                   ])
                 else
                   const SizedBox.shrink(),

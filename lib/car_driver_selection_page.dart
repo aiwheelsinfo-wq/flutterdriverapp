@@ -172,71 +172,7 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
       return const SizedBox.shrink();
     }
 
-    double fare = totalAmount!;
-    bool isLocalTaxi = (tripType?.toLowerCase() ?? '').contains('local') && (tripType?.toLowerCase() ?? '').contains('taxi');
-
-    if (isLocalTaxi) {
-      // For local taxi: use vendorAmount directly from DB (= customer's paid amount, 100%)
-      double localFare = (vendorAmount != null && vendorAmount! > 0) ? vendorAmount! : fare;
-      return Container(
-        margin: const EdgeInsets.only(bottom: 20),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(color: Colors.grey.shade100),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.account_balance_wallet_rounded, color: primaryAmber, size: 22),
-                const SizedBox(width: 8),
-                Text(
-                  "Fare & Earnings Summary",
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: darkCharcoal,
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            _buildSummaryRow("Total Fare", "₹${localFare.toStringAsFixed(0)}", isHighlight: false),
-            const SizedBox(height: 12),
-            _buildSummaryRow("Commission", "₹0", isHighlight: false),
-            const SizedBox(height: 12),
-            _buildSummaryRow("Platform Fee", "₹0", isHighlight: false),
-            const SizedBox(height: 12),
-            _buildSummaryRow(
-              "Vendor Earnings", 
-              "₹${localFare.toStringAsFixed(0)}", 
-              isHighlight: true, 
-              highlightColor: primaryAmber,
-            ),
-            const SizedBox(height: 12),
-            _buildSummaryRow(
-              "Net Payable", 
-              "₹${localFare.toStringAsFixed(0)}", 
-              isHighlight: true, 
-              highlightColor: Colors.green,
-            ),
-          ],
-        ),
-      );
-    }
-
-
-    // For One-Way: Customer pays 100% directly to Driver, Platform Fee is deducted from wallet
+    // For One-Way & Local Taxi: Customer pays 100% directly to Driver, Platform Fee is deducted from wallet
     double customerTotal = fare;
     double vendorEarnings = (vendorAmount != null && vendorAmount! > 0) ? vendorAmount! : (fare * 0.90);
     double platformFee = (customerTotal > vendorEarnings) ? (customerTotal - vendorEarnings) : (fare * 0.10);

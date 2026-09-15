@@ -332,6 +332,18 @@ class _CompleatedListState extends State<CompleatedList> {
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16));
                         }
+                        if (tType.contains('local') && tType.contains('taxi')) {
+                          double vAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                          if (vAmt == 0) {
+                            double rawFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                            vAmt = rawFare * 0.90;
+                          }
+                          return Text("₹${vAmt.toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                  color: primaryAmber,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16));
+                        }
                         if (tType.contains('one-way') || tType.contains('one way')) {
                           double rawFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
                           double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
@@ -444,21 +456,57 @@ class _CompleatedListState extends State<CompleatedList> {
                     builder: (context) {
                       String tType = (booking['trip_type'] ?? '').toString().toLowerCase();
                       if (tType.contains('local') && tType.contains('taxi')) {
-                        // For local taxi: vendor_amount = customer's paid amount (vendor gets 100%)
-                        double fare = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
-                        if (fare == 0) {
-                          fare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        double customerTotal = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                        double platformCommission = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
+
+                        if (customerTotal == 0 && vendorEarnings > 0) {
+                          customerTotal = vendorEarnings / 0.90;
                         }
+                        if (vendorEarnings == 0 && customerTotal > 0) {
+                          vendorEarnings = customerTotal * 0.90;
+                        }
+                        if (platformCommission == 0 && customerTotal > vendorEarnings) {
+                          platformCommission = customerTotal - vendorEarnings;
+                        }
+
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildFinancialSummaryRow("Total Fare", "₹${fare.toStringAsFixed(0)}"),
-                              _buildFinancialSummaryRow("Commission", "₹0"),
-                              _buildFinancialSummaryRow("Platform Fee", "₹0"),
-                              _buildFinancialSummaryRow("Vendor Earnings", "₹${fare.toStringAsFixed(0)}", isHighlight: true),
-                              _buildFinancialSummaryRow("Net Payable", "₹${fare.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
+                              _buildFinancialSummaryRow("Total Customer Fare", "₹${customerTotal.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("Collected from Customer", "₹${customerTotal.toStringAsFixed(0)}", isHighlight: true, highlightColor: primaryAmber),
+                              _buildFinancialSummaryRow("Platform Fee", "₹${platformCommission.toStringAsFixed(0)} (Wallet Deducted)"),
+                              const Divider(height: 16, thickness: 0.8),
+                              _buildFinancialSummaryRow("Your Net Earnings", "₹${vendorEarnings.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.green[50],
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.green.shade100),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(Icons.check_circle_outline, color: Colors.green[800], size: 16),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        "Trip completed successfully. 100% fare was collected directly from the customer, and the platform fee was deducted from your prepaid wallet.",
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.green[900],
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         );
