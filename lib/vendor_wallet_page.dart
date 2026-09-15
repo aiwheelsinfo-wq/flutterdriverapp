@@ -420,11 +420,13 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
         backgroundColor: Colors.white,
         foregroundColor: charcoal,
         elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: const Text(
           "Vendor Prepaid Wallet",
           style: TextStyle(
@@ -825,16 +827,16 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
                 ),
               ),
             ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: _buildModernBottomNav(),
     );
   }
 
-  Widget _buildBottomNav() {
+  Widget _buildModernBottomNav() {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       height: 70,
       decoration: BoxDecoration(
-        color: charcoal,
+        color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(35),
         boxShadow: [
           BoxShadow(
@@ -889,7 +891,7 @@ class _VendorWalletPageState extends State<VendorWalletPage> {
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-            color: isSel ? accentAmber : Colors.transparent,
+            color: isSel ? const Color(0xFFFFB300) : Colors.transparent,
             shape: BoxShape.circle),
         child: Icon(icon, color: isSel ? Colors.black : Colors.white38, size: 26),
       ),
