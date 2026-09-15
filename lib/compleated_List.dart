@@ -592,10 +592,7 @@ class _CompleatedListState extends State<CompleatedList> {
                         );
                       }
 
-                      double baseFare = double.tryParse(booking['base_charge']?.toString() ?? '') ?? 0.0;
-                      if (baseFare == 0) {
-                        baseFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
-                      }
+                      double baseFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
                       double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
                       if (baseFare == 0 && vendorEarnings > 0) {
                         baseFare = vendorEarnings / 0.90;
