@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_config.dart';
-import 'settlements_page.dart';
 import 'bank_details_page.dart';
 import 'booking_list.dart';
 import 'car_list.dart';
@@ -228,7 +227,7 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                           Icons.email, "Email Address", ownerData!["email"]),
                     ]),
                     const SizedBox(height: 20),
-                    _buildSectionTitle("Payments & Settlements"),
+                    _buildSectionTitle("Prepaid Wallet & Bank Details"),
                     _buildInfoCard([
                       ListTile(
                         leading: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF10B981), size: 22),
@@ -241,23 +240,6 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                             MaterialPageRoute(
                               builder: (context) => VendorWalletPage(
                                 vendorPhone: ownerData!["phone_number"] ?? "",
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1, indent: 56, endIndent: 20),
-                      ListTile(
-                        leading: const Icon(Icons.account_balance_wallet, color: primaryAmber, size: 20),
-                        title: const Text("Vendor Settlements", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: charcoal)),
-                        subtitle: const Text("Track trip advance settlements", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SettlementsPage(
-                                phoneNumber: ownerData!["phone_number"] ?? "",
                               ),
                             ),
                           );
@@ -634,7 +616,7 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
             if (phone.isNotEmpty) {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => SettlementsPage(phoneNumber: phone)),
+                MaterialPageRoute(builder: (context) => VendorWalletPage(vendorPhone: phone)),
               );
             }
           }),

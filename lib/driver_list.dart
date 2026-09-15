@@ -9,7 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_config.dart';
 import 'booking_list.dart';
 import 'car_list.dart';
-import 'settlements_page.dart';
+import 'vendor_wallet_page.dart';
 import 'owner_account.dart';
 
 
@@ -968,7 +968,7 @@ class _DriverListPageState extends State<DriverListPage> {
             if (vendorId != null) {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => SettlementsPage(phoneNumber: vendorId!)),
+                MaterialPageRoute(builder: (context) => VendorWalletPage(vendorPhone: vendorId!)),
               );
             }
           }),

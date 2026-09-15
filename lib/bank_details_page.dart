@@ -207,7 +207,7 @@ class _BankDetailsPageState extends State<BankDetailsPage> {
                             ),
                             const SizedBox(height: 8),
                             const Text(
-                              "Configure where you want to receive your trip advance settlements. You can enter bank account info, a UPI ID, or both.",
+                              "Configure where you want to receive payments or refunds. You can enter bank account info, a UPI ID, or both.",
                               style: TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ]),

@@ -21,9 +21,6 @@ import 'document_expered_page.dart';
 import 'compleated_List.dart';
 import 'show_map.dart';
 import 'owner_account.dart';
-import 'car_reg_form.dart';
-import 'driver_add_form.dart';
-import 'settlements_page.dart';
 import 'package:geolocator/geolocator.dart';
 import 'services/overlay_service.dart';
 import 'support_chat_page.dart';
@@ -1137,7 +1134,7 @@ class _BookingListPageState extends State<BookingListPage> {
           _navIcon(2, Icons.person_add_rounded,
               () => _navigateTo(const DriverListPage())),
           _navIcon(3, Icons.account_balance_wallet_rounded,
-              () => _navigateTo(SettlementsPage(phoneNumber: widget.phoneNumber))),
+              () => _navigateTo(VendorWalletPage(vendorPhone: widget.phoneNumber))),
           _navIcon(4, Icons.account_circle_rounded,
               () => _navigateTo(const OwnerProfileScreen())),
         ],

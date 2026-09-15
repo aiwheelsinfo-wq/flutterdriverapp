@@ -8,7 +8,7 @@ import 'car_reg_form.dart';
 import 'api_config.dart';
 import 'booking_list.dart';
 import 'driver_list.dart';
-import 'settlements_page.dart';
+import 'vendor_wallet_page.dart';
 import 'owner_account.dart';
 
 class CarListPage extends StatefulWidget {
@@ -784,7 +784,7 @@ class _CarListPageState extends State<CarListPage> {
             if (vendorId != null) {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => SettlementsPage(phoneNumber: vendorId!)),
+                MaterialPageRoute(builder: (context) => VendorWalletPage(vendorPhone: vendorId!)),
               );
             }
           }),
