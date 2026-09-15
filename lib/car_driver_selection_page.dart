@@ -172,6 +172,8 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
       return const SizedBox.shrink();
     }
 
+    double fare = totalAmount!;
+
     // For One-Way & Local Taxi: Customer pays 100% directly to Driver, Platform Fee is deducted from wallet
     double customerTotal = fare;
     double vendorEarnings = (vendorAmount != null && vendorAmount! > 0) ? vendorAmount! : (fare * 0.90);
