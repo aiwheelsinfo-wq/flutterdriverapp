@@ -977,13 +977,15 @@ class _BookingListPageState extends State<BookingListPage> {
                         style: TextStyle(color: Colors.grey, fontSize: 11)),
                     Text(
                       () {
+                        double tAmt = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
+                        double cleanBase = (agentComm > 0 && tAmt > agentComm) ? (tAmt - agentComm) : tAmt;
+                        if (cleanBase > 0) {
+                          return "₹${(cleanBase * 0.90).toStringAsFixed(0)}";
+                        }
                         double vAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
                         if (vAmt > 0) {
                           return "₹${vAmt.toStringAsFixed(0)}";
-                        }
-                        double tAmt = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
-                        if (tAmt > 0) {
-                          return "₹${(tAmt * 0.90).toStringAsFixed(0)}";
                         }
                         return "₹${booking['vendor_amount'] ?? '0'}";
                       }(),

@@ -724,11 +724,15 @@ class _InvoicePageState extends State<InvoicePage> {
 
       driver_allowance = (distance < 200) ? 300 : 400;
 
-      baceAmount = invoiceData['total_amount'] != '0'
+      double rawTotal = invoiceData['total_amount'] != '0'
           ? double.parse(invoiceData['total_amount'].toString())
           : (distance * kmRate) + driver_allowance;
 
-      double totalbeforeGst = (distance * kmRate) + agent_commission;
+      baceAmount = (agent_commission > 0 && rawTotal > agent_commission)
+          ? (rawTotal - agent_commission)
+          : rawTotal;
+
+      double totalbeforeGst = (distance * kmRate);
 
       gst = baceAmount * gstPercent / 100;
       netTotal = baceAmount + gst + parking_charge;
@@ -736,7 +740,7 @@ class _InvoicePageState extends State<InvoicePage> {
       base_charge =
           double.tryParse(invoiceData['base_charge']?.toString() ?? '') ?? 0.0;
       if (base_charge == 0.0) {
-        base_charge = baceAmount - agent_commission;
+        base_charge = baceAmount;
       }
 
       baceAmount = double.parse(baceAmount.toStringAsFixed(2));

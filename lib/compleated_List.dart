@@ -456,7 +456,9 @@ class _CompleatedListState extends State<CompleatedList> {
                     builder: (context) {
                       String tType = (booking['trip_type'] ?? '').toString().toLowerCase();
                       if (tType.contains('local') && tType.contains('taxi')) {
-                        double customerTotal = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        double rawTotal = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
+                        double customerTotal = (agentComm > 0 && rawTotal > agentComm) ? (rawTotal - agentComm) : rawTotal;
                         double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
                         double platformCommission = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
 
@@ -592,14 +594,14 @@ class _CompleatedListState extends State<CompleatedList> {
                         );
                       }
 
-                      double baseFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
-                      double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
-                      if (baseFare == 0 && vendorEarnings > 0) {
-                        baseFare = vendorEarnings / 0.90;
+                      double rawFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                      double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
+                      double baseFare = (agentComm > 0 && rawFare > agentComm) ? (rawFare - agentComm) : rawFare;
+                      if (baseFare == 0) {
+                        double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                        baseFare = vendorAmt / 0.90;
                       }
-                      if (vendorEarnings == 0 && baseFare > 0) {
-                        vendorEarnings = baseFare * 0.90;
-                      }
+                      double vendorEarnings = baseFare * 0.90;
 
                       double gstAmount = baseFare * 0.05;
                       double platformCommission = baseFare * 0.10;
