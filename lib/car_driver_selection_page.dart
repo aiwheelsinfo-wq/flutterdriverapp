@@ -173,11 +173,15 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
     }
 
     double fare = totalAmount!;
+    bool isLocalTaxi = (tripType?.toLowerCase() ?? '').contains('local') && (tripType?.toLowerCase() ?? '').contains('taxi');
 
-    // For One-Way & Local Taxi: Customer pays 100% directly to Driver, Platform Fee is deducted from wallet
-    double customerTotal = fare;
-    double vendorEarnings = (vendorAmount != null && vendorAmount! > 0) ? vendorAmount! : (fare * 0.90);
-    double platformFee = (customerTotal > vendorEarnings) ? (customerTotal - vendorEarnings) : (fare * 0.10);
+    double baseFare = fare;
+    double gstAmount = isLocalTaxi ? 0.0 : (baseFare * 0.05);
+    double customerTotal = baseFare + gstAmount;
+    double platformFee = (vendorAmount != null && vendorAmount! > 0 && customerTotal > vendorAmount!)
+        ? (isLocalTaxi ? (customerTotal - vendorAmount!) : (baseFare * 0.10))
+        : (baseFare * 0.10);
+    double vendorEarnings = (vendorAmount != null && vendorAmount! > 0) ? vendorAmount! : (baseFare * 0.90);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -212,7 +216,11 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
             ],
           ),
           const Divider(height: 24),
-          _buildSummaryRow("Total Customer Fare", "₹${customerTotal.toStringAsFixed(0)}", isHighlight: false),
+          _buildSummaryRow("Base Trip Fare", "₹${baseFare.toStringAsFixed(0)}", isHighlight: false),
+          if (gstAmount > 0) ...[
+            const SizedBox(height: 12),
+            _buildSummaryRow("GST (5%)", "₹${gstAmount.toStringAsFixed(0)}", isHighlight: false),
+          ],
           const SizedBox(height: 12),
           _buildSummaryRow(
             "Collect from Customer", 
@@ -222,7 +230,11 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
             subtitle: "100% payable by customer at trip end (Cash / UPI)",
           ),
           const SizedBox(height: 12),
-          _buildSummaryRow("Platform Fee", "₹${platformFee.toStringAsFixed(0)} (Wallet Deducted)", isHighlight: false),
+          _buildSummaryRow("Platform Fee (10%)", "₹${platformFee.toStringAsFixed(0)} (Wallet Deducted)", isHighlight: false),
+          if (gstAmount > 0) ...[
+            const SizedBox(height: 12),
+            _buildSummaryRow("GST (5%)", "₹${gstAmount.toStringAsFixed(0)} (Wallet Deducted)", isHighlight: false),
+          ],
           const SizedBox(height: 12),
           _buildSummaryRow(
             "Your Net Earnings", 
@@ -245,7 +257,9 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    "Customer pays 100% directly to you. Platform fee is deducted automatically from your prepaid wallet upon trip completion.",
+                    gstAmount > 0
+                        ? "Collect ₹${customerTotal.toStringAsFixed(0)} directly from customer. Platform fee (₹${platformFee.toStringAsFixed(0)}) + 5% GST (₹${gstAmount.toStringAsFixed(0)}) will be automatically deducted from your prepaid wallet upon trip completion."
+                        : "Customer pays 100% directly to you. Platform fee is deducted automatically from your prepaid wallet upon trip completion.",
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: Colors.green.shade900,

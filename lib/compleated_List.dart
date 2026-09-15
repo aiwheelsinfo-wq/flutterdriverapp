@@ -592,33 +592,36 @@ class _CompleatedListState extends State<CompleatedList> {
                         );
                       }
 
-                      double totalCustomerFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                      double baseFare = double.tryParse(booking['base_charge']?.toString() ?? '') ?? 0.0;
+                      if (baseFare == 0) {
+                        baseFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                      }
                       double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
-                      double platformCommission = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
-
-                      if (totalCustomerFare == 0 && vendorEarnings > 0) {
-                        totalCustomerFare = vendorEarnings / 0.90;
+                      if (baseFare == 0 && vendorEarnings > 0) {
+                        baseFare = vendorEarnings / 0.90;
                       }
-                      if (vendorEarnings == 0 && totalCustomerFare > 0) {
-                        vendorEarnings = totalCustomerFare * 0.90;
-                      }
-                      if (platformCommission == 0 && totalCustomerFare > vendorEarnings) {
-                        platformCommission = totalCustomerFare - vendorEarnings;
+                      if (vendorEarnings == 0 && baseFare > 0) {
+                        vendorEarnings = baseFare * 0.90;
                       }
 
+                      double gstAmount = baseFare * 0.05;
+                      double platformCommission = baseFare * 0.10;
                       double toll = double.tryParse(booking['toll_charge']?.toString() ?? '0') ?? 0.0;
                       double parking = double.tryParse(booking['parking_charge']?.toString() ?? '0') ?? 0.0;
                       double extraCharges = toll + parking;
+                      double totalCollected = baseFare + gstAmount + extraCharges;
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildFinancialSummaryRow("Total Customer Fare", "₹${totalCustomerFare.toStringAsFixed(0)}"),
+                            _buildFinancialSummaryRow("Base Trip Fare", "₹${baseFare.toStringAsFixed(0)}"),
+                            _buildFinancialSummaryRow("GST (5%)", "₹${gstAmount.toStringAsFixed(0)}"),
                             if (extraCharges > 0) _buildFinancialSummaryRow("Toll / Parking (Included)", "₹${extraCharges.toStringAsFixed(0)}"),
-                            _buildFinancialSummaryRow("Collected from Customer", "₹${totalCustomerFare.toStringAsFixed(0)}", isHighlight: true, highlightColor: primaryAmber),
-                            _buildFinancialSummaryRow("Platform Fee", "₹${platformCommission.toStringAsFixed(0)} (Wallet Deducted)"),
+                            _buildFinancialSummaryRow("Collected from Customer", "₹${totalCollected.toStringAsFixed(0)}", isHighlight: true, highlightColor: primaryAmber),
+                            _buildFinancialSummaryRow("Platform Fee (10%)", "₹${platformCommission.toStringAsFixed(0)} (Wallet Deducted)"),
+                            _buildFinancialSummaryRow("GST (5%)", "₹${gstAmount.toStringAsFixed(0)} (Wallet Deducted)"),
                             const Divider(height: 16, thickness: 0.8),
                             _buildFinancialSummaryRow("Your Net Earnings", "₹${vendorEarnings.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
                             const SizedBox(height: 8),
@@ -636,7 +639,7 @@ class _CompleatedListState extends State<CompleatedList> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      "Trip completed successfully. 100% fare was collected directly from the customer, and the platform fee was settled via your prepaid wallet.",
+                                      "Trip completed successfully. 100% fare (₹${totalCollected.toStringAsFixed(0)}) was collected directly from the customer, and the platform fee (₹${platformCommission.toStringAsFixed(0)}) + 5% GST (₹${gstAmount.toStringAsFixed(0)}) were deducted from your prepaid wallet.",
                                       style: TextStyle(
                                         fontSize: 10,
                                         color: Colors.green[900],
