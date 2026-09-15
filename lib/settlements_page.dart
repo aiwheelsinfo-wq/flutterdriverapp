@@ -625,9 +625,7 @@ class _SettlementsPageState extends State<SettlementsPage> {
                           Text(
                             isCancelled
                                 ? "Vendor Compensation"
-                                : (tripType.toString().toLowerCase() == 'round-trip'
-                                    ? "Due from Rentox"
-                                    : "Your 60% Share"),
+                                : "Due from Rentox",
                             style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           const SizedBox(height: 4),

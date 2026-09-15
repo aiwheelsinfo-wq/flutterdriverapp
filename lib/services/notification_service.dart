@@ -7,7 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../main.dart';
 import '../trip_accepting.dart';
-import '../widgets/ride_request_dialog.dart';
+import 'overlay_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -16,6 +16,10 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await Firebase.initializeApp();
     await NotificationService.instance.setupFlutterNotifications();
     await NotificationService.instance.showNotification(message);
+
+    if (message.data['notification_type'] == 'new_booking') {
+      await OverlayService.instance.handleIncomingRideAlert(message.data);
+    }
   } catch (e) {
     debugPrint("⚠️ _firebaseMessagingBackgroundHandler error: $e");
   }
@@ -67,7 +71,7 @@ class NotificationService {
       500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1500,
     ]);
 
-    // 1. High-Priority Uber-style Ride Request Channel (loud alarm sound & 15s repeating vibration)
+    // 1. High-Priority Uber-style Ride Request Channel (preview ringtone + vibration)
     final AndroidNotificationChannel rideAlertChannel = AndroidNotificationChannel(
       'rentox_ride_alert_channel',
       'Ride Requests & Booking Alerts',
@@ -79,20 +83,116 @@ class NotificationService {
       vibrationPattern: vibrationPattern15Sec,
     );
 
-    // 2. Standard Channel for general status updates
+    // 2. Ride Request Channel (Sound Only, No Vibration)
+    final AndroidNotificationChannel rideAlertNoVibChannel = AndroidNotificationChannel(
+      'rentox_ride_alert_no_vib',
+      'Ride Requests (Sound Only)',
+      description: 'Incoming trip notifications with sound only, no vibration.',
+      importance: Importance.max,
+      playSound: true,
+      sound: const RawResourceAndroidNotificationSound('preview'),
+      enableVibration: false,
+    );
+
+    // 3. High Alert Siren Channel (Sound + Vibrate)
+    final AndroidNotificationChannel loudAlarmChannel = AndroidNotificationChannel(
+      'rentox_alert_loud_alarm',
+      'High Alert Siren',
+      description: 'Urgent siren ringtone for incoming rides.',
+      importance: Importance.max,
+      playSound: true,
+      sound: const RawResourceAndroidNotificationSound('preview'),
+      enableVibration: true,
+      vibrationPattern: vibrationPattern15Sec,
+    );
+
+    // 4. High Alert Siren Channel (Sound Only, No Vibrate)
+    final AndroidNotificationChannel loudAlarmNoVibChannel = AndroidNotificationChannel(
+      'rentox_alert_loud_alarm_no_vib',
+      'High Alert Siren (No Vibrate)',
+      description: 'Urgent siren ringtone without vibration.',
+      importance: Importance.max,
+      playSound: true,
+      sound: const RawResourceAndroidNotificationSound('preview'),
+      enableVibration: false,
+    );
+
+    // 5. Radar Pulse Channel (Sound + Vibrate)
+    final AndroidNotificationChannel uberPulseChannel = AndroidNotificationChannel(
+      'rentox_alert_uber_pulse',
+      'Radar Pulse Alerts',
+      description: 'Pulse tone for incoming rides.',
+      importance: Importance.max,
+      playSound: true,
+      sound: const RawResourceAndroidNotificationSound('preview'),
+      enableVibration: true,
+      vibrationPattern: vibrationPattern15Sec,
+    );
+
+    // 6. Radar Pulse Channel (Sound Only, No Vibrate)
+    final AndroidNotificationChannel uberPulseNoVibChannel = AndroidNotificationChannel(
+      'rentox_alert_uber_pulse_no_vib',
+      'Radar Pulse Alerts (No Vibrate)',
+      description: 'Pulse tone without vibration.',
+      importance: Importance.max,
+      playSound: true,
+      sound: const RawResourceAndroidNotificationSound('preview'),
+      enableVibration: false,
+    );
+
+    // 7. Vibrate Only Channel (No Sound, Vibrate ON)
+    final AndroidNotificationChannel rideAlertSilentVibChannel = AndroidNotificationChannel(
+      'rentox_alert_silent_vib',
+      'Ride Requests (Vibrate Only)',
+      description: 'Incoming trip notifications with vibration only, no sound.',
+      importance: Importance.max,
+      playSound: false,
+      enableVibration: true,
+      vibrationPattern: vibrationPattern15Sec,
+    );
+
+    // 8. Silent Channel (No Sound, No Vibrate)
+    const AndroidNotificationChannel rideAlertSilentNoVibChannel = AndroidNotificationChannel(
+      'rentox_alert_silent_no_vib',
+      'Ride Requests (Silent)',
+      description: 'Silent incoming trip notifications.',
+      importance: Importance.high,
+      playSound: false,
+      enableVibration: false,
+    );
+
+    // 9. Standard Channel for general status updates (Sound + Vibrate)
     const AndroidNotificationChannel standardChannel = AndroidNotificationChannel(
       'high_importance_channel',
       'General Notifications',
       description: 'Used for status updates and general notifications.',
+      importance: Importance.max,
+      playSound: true,
+    );
+
+    // 10. Standard Channel without vibration
+    const AndroidNotificationChannel standardNoVibChannel = AndroidNotificationChannel(
+      'high_importance_channel_no_vib',
+      'General Notifications (No Vibrate)',
+      description: 'Used for status updates without vibration.',
       importance: Importance.high,
       playSound: true,
+      enableVibration: false,
     );
 
     final androidPlugin = _localNotifications
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.createNotificationChannel(rideAlertChannel);
+    await androidPlugin?.createNotificationChannel(rideAlertNoVibChannel);
+    await androidPlugin?.createNotificationChannel(loudAlarmChannel);
+    await androidPlugin?.createNotificationChannel(loudAlarmNoVibChannel);
+    await androidPlugin?.createNotificationChannel(uberPulseChannel);
+    await androidPlugin?.createNotificationChannel(uberPulseNoVibChannel);
+    await androidPlugin?.createNotificationChannel(rideAlertSilentVibChannel);
+    await androidPlugin?.createNotificationChannel(rideAlertSilentNoVibChannel);
     await androidPlugin?.createNotificationChannel(standardChannel);
+    await androidPlugin?.createNotificationChannel(standardNoVibChannel);
 
     // Android initialization
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -121,19 +221,16 @@ class NotificationService {
           try {
             final Map<String, dynamic> data = jsonDecode(details.payload!);
             if (data['notification_type'] == 'new_booking') {
-              final String? bookingId = data['booking_id'];
+              final String? bookingId = data['booking_id']?.toString();
               if (bookingId != null && bookingId.isNotEmpty) {
-                const storage = FlutterSecureStorage();
-                final phoneNumber = await storage.read(key: 'phone_number');
-                if (phoneNumber != null && phoneNumber.isNotEmpty) {
-                  navigatorKey.currentState?.push(
-                    MaterialPageRoute(
-                      builder: (context) => DriverTripPage(
-                        bookingId: bookingId,
-                        phoneNumber: phoneNumber,
-                      ),
-                    ),
-                  );
+                final bool isAdvance = (data['is_advance_booking'] == 'true');
+                if (isAdvance) {
+                  final bool canDraw = await OverlayService.instance.hasPermission();
+                  if (canDraw) {
+                    await OverlayService.instance.bringToFront();
+                  }
+                } else {
+                  OverlayService.instance.handleIncomingRideAlert(data);
                 }
               }
             }
@@ -147,59 +244,154 @@ class NotificationService {
     _isFlutterLocalNotificationsInitialized = true;
   }
 
+  static Int64List _generateVibrationPattern(int seconds) {
+    final List<int> pattern = [0];
+    double elapsed = 0.0;
+    while (elapsed < seconds) {
+      pattern.addAll([1000, 500]);
+      elapsed += 1.5;
+    }
+    return Int64List.fromList(pattern);
+  }
+
   Future<void> showNotification(RemoteMessage message) async {
     final Map<String, dynamic> data = message.data;
     final bool isNewBooking = (data['notification_type'] == 'new_booking');
 
-    String title = message.notification?.title ??
+    // Read Driver/Vendor notification preferences from Secure Storage
+    const storage = FlutterSecureStorage();
+    String? storedVib;
+    String? storedSnd;
+    try {
+      storedVib = await storage.read(key: 'alert_vibration_enabled');
+      storedSnd = await storage.read(key: 'alert_sound_enabled');
+    } catch (e) {
+      debugPrint("⚠️ Error reading alert preferences in showNotification: $e");
+    }
+    final bool isVibrationEnabled = (storedVib != 'false');
+    final bool isSoundEnabled = (storedSnd != 'false');
+
+    String title = data['title']?.toString() ??
+        message.notification?.title ??
         (isNewBooking ? 'New Trip Available!' : 'Rentox Alert');
-    String body = message.notification?.body ?? '';
+    String body = data['body']?.toString() ??
+        message.notification?.body ?? '';
+    body = body.replaceAll(r'\n', '\n');
     if (body.isEmpty && isNewBooking) {
       final pickup = data['pickup_location'] ?? 'Customer location';
       final earnings = data['vendor_amount'] ?? '0';
       body = 'From: $pickup\nEarnings: ₹$earnings';
     }
 
-    final androidDetails = isNewBooking
-        ? AndroidNotificationDetails(
-            'rentox_ride_alert_channel',
-            'Ride Requests & Booking Alerts',
-            channelDescription:
-                'High priority incoming trip notifications with alarm ringtone.',
-            importance: Importance.max,
-            priority: Priority.max,
-            fullScreenIntent: true,
-            category: AndroidNotificationCategory.call,
-            audioAttributesUsage: AudioAttributesUsage.alarm,
-            playSound: true,
-            sound: const RawResourceAndroidNotificationSound('preview'),
-            enableVibration: true,
-            vibrationPattern: Int64List.fromList([
-              0, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000,
-              500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1500,
-            ]),
-            icon: '@mipmap/ic_launcher',
-          )
-        : const AndroidNotificationDetails(
-            'high_importance_channel',
-            'General Notifications',
-            channelDescription:
-                'This channel is used for important notifications.',
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: '@mipmap/ic_launcher',
-          );
+    AndroidNotificationDetails androidDetails;
+    final bool isAdvanceBooking = (data['is_advance_booking'] == 'true');
+
+    if (isNewBooking && isAdvanceBooking) {
+      // Gentle notification for Advance Bookings
+      final String channelId = isVibrationEnabled
+          ? 'high_importance_channel'
+          : 'high_importance_channel_no_vib';
+      androidDetails = AndroidNotificationDetails(
+        channelId,
+        'Advance Trip Bookings',
+        channelDescription:
+            'Scheduled and advance booking notices for upcoming dates.',
+        importance: Importance.high,
+        priority: Priority.high,
+        visibility: NotificationVisibility.public,
+        playSound: isSoundEnabled,
+        enableVibration: isVibrationEnabled,
+        icon: '@mipmap/ic_launcher',
+      );
+    } else if (isNewBooking) {
+      final int vibrateSec = int.tryParse(data['vibrate_seconds']?.toString() ?? '') ?? 15;
+      final String ringtoneName = data['ringtone_name']?.toString() ?? 'preview';
+
+      // Pick channel based on user sound & vibration preferences
+      String channelId;
+      if (isSoundEnabled && isVibrationEnabled) {
+        if (ringtoneName == 'loud_alarm') {
+          channelId = 'rentox_alert_loud_alarm';
+        } else if (ringtoneName == 'uber_pulse') {
+          channelId = 'rentox_alert_uber_pulse';
+        } else if (ringtoneName == 'default') {
+          channelId = 'high_importance_channel';
+        } else {
+          channelId = 'rentox_ride_alert_channel';
+        }
+      } else if (isSoundEnabled && !isVibrationEnabled) {
+        if (ringtoneName == 'loud_alarm') {
+          channelId = 'rentox_alert_loud_alarm_no_vib';
+        } else if (ringtoneName == 'uber_pulse') {
+          channelId = 'rentox_alert_uber_pulse_no_vib';
+        } else if (ringtoneName == 'default') {
+          channelId = 'high_importance_channel_no_vib';
+        } else {
+          channelId = 'rentox_ride_alert_no_vib';
+        }
+      } else if (!isSoundEnabled && isVibrationEnabled) {
+        channelId = 'rentox_alert_silent_vib';
+      } else {
+        channelId = 'rentox_alert_silent_no_vib';
+      }
+
+      final dynamicVibration = isVibrationEnabled
+          ? _generateVibrationPattern(vibrateSec)
+          : null;
+
+      final AndroidNotificationSound? soundResource = (!isSoundEnabled || ringtoneName == 'default')
+          ? null
+          : const RawResourceAndroidNotificationSound('preview');
+
+      androidDetails = AndroidNotificationDetails(
+        channelId,
+        'Ride Requests & Booking Alerts',
+        channelDescription:
+            'High priority incoming trip notifications.',
+        importance: Importance.max,
+        priority: Priority.max,
+        fullScreenIntent: true,
+        category: AndroidNotificationCategory.call,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+        visibility: NotificationVisibility.public,
+        playSound: isSoundEnabled,
+        sound: soundResource,
+        enableVibration: isVibrationEnabled,
+        vibrationPattern: dynamicVibration,
+        icon: '@mipmap/ic_launcher',
+        ticker: title,
+      );
+    } else {
+      final String channelId = isVibrationEnabled
+          ? 'high_importance_channel'
+          : 'high_importance_channel_no_vib';
+      androidDetails = AndroidNotificationDetails(
+        channelId,
+        'General Notifications',
+        channelDescription:
+            'This channel is used for important notifications.',
+        importance: Importance.high,
+        priority: Priority.high,
+        visibility: NotificationVisibility.public,
+        playSound: isSoundEnabled,
+        enableVibration: isVibrationEnabled,
+        icon: '@mipmap/ic_launcher',
+      );
+    }
+
+    final int notificationId =
+        int.tryParse(data['booking_id']?.toString() ?? '') ?? message.hashCode;
 
     await _localNotifications.show(
-      message.hashCode,
+      notificationId,
       title,
       body,
       NotificationDetails(
         android: androidDetails,
-        iOS: const DarwinNotificationDetails(
+        iOS: DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
-          presentSound: true,
+          presentSound: isSoundEnabled,
         ),
       ),
       payload: jsonEncode(message.data),
@@ -221,20 +413,7 @@ class NotificationService {
   }
 
   void _triggerInAppRideRequest(Map<String, dynamic> data) {
-    final context = navigatorKey.currentContext;
-    if (context != null) {
-      final bookingId = data['booking_id']?.toString() ?? '';
-      if (bookingId.isNotEmpty) {
-        RideRequestDialog.show(
-          context,
-          bookingId: bookingId,
-          tripType: data['booking_type']?.toString() ?? 'Taxi Ride',
-          pickupLocation: data['pickup_location']?.toString() ?? '',
-          dropLocation: data['drop_location']?.toString() ?? '',
-          vendorAmount: data['vendor_amount']?.toString() ?? '0',
-        );
-      }
-    }
+    OverlayService.instance.handleIncomingRideAlert(data);
   }
 
   Future<void> _handleBackgroundMessage(RemoteMessage message) async {

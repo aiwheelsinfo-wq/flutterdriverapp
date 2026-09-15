@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -31,7 +32,7 @@ class _CarListPageState extends State<CarListPage> {
   final Color kAmber = const Color(0xFFFFB300);
   final Color kDark = const Color(0xFF121212);
   final Color kLightAmber = const Color(0xFFFFF8E1);
-  final Color kBackground = const Color(0xFFF6F6F6);
+  final Color kBackground = const Color(0xFFF7F8FA);
 
   @override
   void initState() {
@@ -138,164 +139,273 @@ class _CarListPageState extends State<CarListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBackground,
-      body: Column(
-        children: [
-          _buildPremiumHeader(),
-          _buildFilterChips(),
-          Expanded(
-            child: isLoading
-                ? Center(child: CircularProgressIndicator(color: kAmber))
-                : RefreshIndicator(
-                    onRefresh: fetchCars, child: _buildFleetList()),
-          ),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
       ),
-      bottomNavigationBar: _buildModernBottomNav(),
+      child: Scaffold(
+        backgroundColor: kBackground,
+        body: Column(
+          children: [
+            _buildCleanHeader(),
+            _buildSearchField(),
+            _buildFilterChips(),
+            const SizedBox(height: 8),
+            Expanded(
+              child: isLoading
+                  ? Center(child: CircularProgressIndicator(color: kAmber))
+                  : RefreshIndicator(
+                      onRefresh: fetchCars, child: _buildFleetList()),
+            ),
+          ],
+        ),
+        bottomNavigationBar: _buildModernBottomNav(),
+      ),
     );
   }
 
-  Widget _buildPremiumHeader() {
-    int activeCount = allCars.where((c) => isBookedToday(c["bookings"])).length;
+  Widget _buildCleanHeader() {
+    final int totalCount = allCars.length;
+    final int busyCount = allCars.where((c) => isBookedToday(c["bookings"])).length;
+    final int availableCount = (totalCount >= busyCount) ? totalCount - busyCount : 0;
 
     return Container(
-      padding: const EdgeInsets.only(top: 60, left: 20, right: 20, bottom: 25),
-      decoration: BoxDecoration(
-          color: kDark,
-          borderRadius:
-              const BorderRadius.vertical(bottom: Radius.circular(30))),
-      child: Column(
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (Navigator.canPop(context)) ...[
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  // LEFT SIDE (Flexible so it shrinks properly)
-                  Flexible(
-                    flex: 1,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Fleet Dashboard",
-                          style: GoogleFonts.poppins(
-                            color: kAmber,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          "Manage your rental assets",
-                          style: TextStyle(color: Colors.white60, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(width: 16),
-
-                  // RIGHT SIDE (Auto wraps on small screens)
-                  Expanded(
-                    flex: 1,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CarFormPage(),
-                            ),
-                          );
-
-                          // Optional: Refresh after coming back
-                          fetchCars(); // if you have this method
-                        },
-                        icon: const Icon(Icons.add,
-                            size: 18, color: Colors.black),
-                        label: const Text(
-                          "Add Car",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: kAmber,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _searchController,
-            onChanged: _runFilter,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: "Search Plate or Model...",
-              hintStyle: const TextStyle(color: Colors.white30, fontSize: 14),
-              prefixIcon: Icon(Icons.search, color: kAmber),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.08),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none),
+      color: Colors.white,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(color: Color(0xFFF1F2F4), width: 1),
             ),
           ),
-        ],
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Color(0xFF171717),
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Fleet Dashboard",
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF171717),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 21,
+                        letterSpacing: -0.4,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (totalCount > 0) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        "$totalCount Vehicles · $availableCount Available · $busyCount Busy",
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CarFormPage(),
+                      ),
+                    );
+                    fetchCars();
+                  },
+                  icon: const Icon(Icons.add_rounded, size: 18, color: Color(0xFF171717)),
+                  label: const Text(
+                    "Add Car",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF171717),
+                      fontSize: 13,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFB000),
+                    foregroundColor: const Color(0xFF171717),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildHeaderStat(String label, int val, Color color) {
-    return Column(
-      children: [
-        Text(val.toString(),
-            style: GoogleFonts.poppins(
-                color: color, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label,
-            style: const TextStyle(color: Colors.white38, fontSize: 10)),
-      ],
+  Widget _buildSearchField() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: _runFilter,
+          style: const TextStyle(
+            color: Color(0xFF374151),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: InputDecoration(
+            hintText: "Search plate or model...",
+            hintStyle: const TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+            ),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: Color(0xFFF59E0B),
+              size: 20,
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF9CA3AF)),
+                    onPressed: () {
+                      _searchController.clear();
+                      _runFilter('');
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildFilterChips() {
     List<String> options = ["All", "Available", "Busy"];
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: options.map((opt) {
           bool active = selectedFilter == opt;
-          return ChoiceChip(
-            label: Text(opt),
-            selected: active,
-            selectedColor: kAmber,
-            onSelected: (v) {
-              setState(() => selectedFilter = opt);
-              _runFilter(_searchController.text);
-            },
+          int count = 0;
+          if (opt == "All") {
+            count = allCars.length;
+          } else if (opt == "Available") {
+            count = allCars.where((c) => !isBookedToday(c["bookings"])).length;
+          } else if (opt == "Busy") {
+            count = allCars.where((c) => isBookedToday(c["bookings"])).length;
+          }
+
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(
+                right: opt != "Busy" ? 10 : 0,
+              ),
+              child: InkWell(
+                onTap: () {
+                  setState(() => selectedFilter = opt);
+                  _runFilter(_searchController.text);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: active ? const Color(0xFF171717) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: active ? const Color(0xFF171717) : const Color(0xFFE5E7EB),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: active ? 0.08 : 0.02),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        opt,
+                        style: TextStyle(
+                          color: active ? Colors.white : const Color(0xFF4B5563),
+                          fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      if (allCars.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: active ? const Color(0xFFFFB000) : const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            "$count",
+                            style: TextStyle(
+                              color: active ? Colors.black : const Color(0xFF6B7280),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
           );
         }).toList(),
       ),

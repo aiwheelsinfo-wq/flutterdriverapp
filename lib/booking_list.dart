@@ -48,6 +48,9 @@ class _BookingListPageState extends State<BookingListPage> {
   List<dynamic> bookings = [];
   Timer? _timer;
   StreamSubscription? _notificationSubscription;
+  double _walletBalance = 0.0;
+  double _minWalletBalance = 0.0;
+  bool _isEligibleForLocalTaxi = true;
 
   // Online / Offline State
   bool isOnline = true;
@@ -290,6 +293,9 @@ class _BookingListPageState extends State<BookingListPage> {
         if (mounted) {
           setState(() {
             isBlocked = false;
+            _walletBalance = (data["wallet_balance"] as num?)?.toDouble() ?? 0.0;
+            _minWalletBalance = (data["min_wallet_balance"] as num?)?.toDouble() ?? 0.0;
+            _isEligibleForLocalTaxi = data["is_eligible_for_local_taxi"] ?? (_walletBalance > _minWalletBalance);
             allBookings = data["bookings"] ?? [];
             bookings = _applyFilters(allBookings);
             totalTripCount = (data["acceptedBookings"] as List).length;
@@ -981,9 +987,21 @@ class _BookingListPageState extends State<BookingListPage> {
                 else
                   const SizedBox.shrink(),
                 ElevatedButton(
-                  onPressed: () => _navigateTo(CarDriverSelectionScreen(
-                      bookingId: booking['booking_id'].toString(),
-                      bookingData: booking)),
+                  onPressed: () {
+                    String tType = (booking['trip_type'] ?? '').toString();
+                    bool isLocalOrOneWay = tType.toLowerCase().contains('taxi') ||
+                        tType.toLowerCase().contains('local') ||
+                        tType.toLowerCase().contains('one-way') ||
+                        tType.toLowerCase().contains('one way');
+                    if (isLocalOrOneWay && !_isEligibleForLocalTaxi) {
+                      _showLowWalletBalanceDialog(
+                          "Insufficient wallet balance (₹${_walletBalance.toStringAsFixed(2)}). Minimum balance of ₹${_minWalletBalance.toStringAsFixed(0)} is required to accept trips. Please recharge your wallet.");
+                      return;
+                    }
+                    _navigateTo(CarDriverSelectionScreen(
+                        bookingId: booking['booking_id'].toString(),
+                        bookingData: booking));
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryAmber,
                     foregroundColor: Colors.white,
@@ -998,6 +1016,53 @@ class _BookingListPageState extends State<BookingListPage> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLowWalletBalanceDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        title: Row(
+          children: const [
+            Icon(Icons.account_balance_wallet_rounded, color: Color(0xFFFF8F00), size: 26),
+            SizedBox(width: 10),
+            Text("Recharge Required", style: TextStyle(color: Color(0xFF263238), fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Color(0xFF546E7A), fontSize: 13.5, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF8F00),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => VendorWalletPage(vendorPhone: widget.phoneNumber),
+                ),
+              ).then((_) => fetchBookings());
+            },
+            icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
+            label: const Text("Recharge Now", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

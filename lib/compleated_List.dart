@@ -333,15 +333,14 @@ class _CompleatedListState extends State<CompleatedList> {
                                   fontSize: 16));
                         }
                         if (tType.contains('one-way') || tType.contains('one way')) {
-                          double fare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                          double rawFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                          double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
+                          double fare = (agentComm > 0 && rawFare > agentComm) ? (rawFare - agentComm) : rawFare;
                           if (fare == 0) {
                             double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
                             fare = vendorAmt / 0.90;
                           }
-                          double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
-                          double agentCommWithTax = agentComm * 1.05;
-                          double baseTripFare = fare - agentCommWithTax;
-                          double vendorEarnings = baseTripFare * 0.90;
+                          double vendorEarnings = fare * 0.90;
                           return Text("₹${vendorEarnings.toStringAsFixed(2)}",
                               style: const TextStyle(
                                   color: primaryAmber,
@@ -545,32 +544,35 @@ class _CompleatedListState extends State<CompleatedList> {
                         );
                       }
 
-                      double fare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
-                      double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
-                      if (fare == 0 && vendorAmt > 0) {
-                        fare = vendorAmt / 0.90;
+                      double totalCustomerFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                      double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                      double platformCommission = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
+
+                      if (totalCustomerFare == 0 && vendorEarnings > 0) {
+                        totalCustomerFare = vendorEarnings / 0.90;
+                      }
+                      if (vendorEarnings == 0 && totalCustomerFare > 0) {
+                        vendorEarnings = totalCustomerFare * 0.90;
+                      }
+                      if (platformCommission == 0 && totalCustomerFare > vendorEarnings) {
+                        platformCommission = totalCustomerFare - vendorEarnings;
                       }
 
-                      double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
-                      double agentCommWithTax = agentComm * 1.05;
-                      double baseTripFare = fare - agentCommWithTax;
-
-                      double rawPaid = double.tryParse(booking['paid_amount']?.toString() ?? '') ?? 0.0;
-                      double advancePaid = rawPaid > 0 ? rawPaid : (baseTripFare * 0.25);
-                      double remainingCollect = rawPaid > 0 ? ((fare - rawPaid) > 0 ? (fare - rawPaid) : 0.0) : (baseTripFare * 0.75 + agentCommWithTax);
-                      double totalEarnings = vendorAmt > 0 ? vendorAmt : (baseTripFare * 0.90);
-                      double settlementEligible = (totalEarnings > remainingCollect) ? (totalEarnings - remainingCollect) : (advancePaid * 0.60);
+                      double toll = double.tryParse(booking['toll_charge']?.toString() ?? '0') ?? 0.0;
+                      double parking = double.tryParse(booking['parking_charge']?.toString() ?? '0') ?? 0.0;
+                      double extraCharges = toll + parking;
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildFinancialSummaryRow("Customer Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}"),
-                            _buildFinancialSummaryRow("Remaining Amount to Collect", "₹${remainingCollect.toStringAsFixed(0)}"),
-                            _buildFinancialSummaryRow("Your Total Earnings", "₹${totalEarnings.toStringAsFixed(0)}", isHighlight: true),
-                            _buildFinancialSummaryRow("Advance Settlement Eligible", "₹${settlementEligible.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
-                            _buildFinancialSummaryRow("Settlement Status", "Eligible (Pending Verification)", isHighlight: false),
+                            _buildFinancialSummaryRow("Total Customer Fare", "₹${totalCustomerFare.toStringAsFixed(0)}"),
+                            if (extraCharges > 0) _buildFinancialSummaryRow("Toll / Parking (Included)", "₹${extraCharges.toStringAsFixed(0)}"),
+                            _buildFinancialSummaryRow("Collected from Customer", "₹${totalCustomerFare.toStringAsFixed(0)}", isHighlight: true, highlightColor: primaryAmber),
+                            _buildFinancialSummaryRow("Platform Fee", "₹${platformCommission.toStringAsFixed(0)} (Wallet Deducted)"),
+                            const Divider(height: 16, thickness: 0.8),
+                            _buildFinancialSummaryRow("Your Net Earnings", "₹${vendorEarnings.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
                             const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.all(10),
@@ -582,11 +584,11 @@ class _CompleatedListState extends State<CompleatedList> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.info_outline, color: Colors.green[800], size: 16),
+                                  Icon(Icons.check_circle_outline, color: Colors.green[800], size: 16),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      "₹${settlementEligible.toStringAsFixed(0)} will be credited to your registered bank account within 7 days after successful trip completion and payment verification.",
+                                      "Trip completed successfully. 100% fare was collected directly from the customer, and the platform fee was settled via your prepaid wallet.",
                                       style: TextStyle(
                                         fontSize: 10,
                                         color: Colors.green[900],

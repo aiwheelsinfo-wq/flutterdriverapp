@@ -502,12 +502,6 @@ class _InvoicePageState extends State<InvoicePage> {
                 _buildInfoRow(Icons.person_pin_circle_outlined, "Driver Name",
                     invoiceData['driver_name']!),
               ],
-              if (invoiceData['driver_phone'] != null &&
-                  invoiceData['driver_phone']!.isNotEmpty &&
-                  invoiceData['driver_phone'] != 'Not Generated') ...[
-                _buildInfoRow(Icons.phone_outlined, "Driver Phone",
-                    invoiceData['driver_phone']!),
-              ],
               _buildInfoRow(Icons.trip_origin, "From", invoiceData['from']!),
               if (invoiceData['trip_type'] != 'Local-Duty') ...[
                 _buildInfoRow(
