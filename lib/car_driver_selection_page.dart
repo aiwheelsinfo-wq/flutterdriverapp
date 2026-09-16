@@ -168,20 +168,23 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
       return const SizedBox.shrink();
     }
 
-    if (tripType == 'Round-Trip' || tripType == 'Local-Duty') {
+    if (tripType == 'Round-Trip') {
       return const SizedBox.shrink();
     }
 
     double fare = totalAmount!;
     bool isLocalTaxi = (tripType?.toLowerCase() ?? '').contains('local') && (tripType?.toLowerCase() ?? '').contains('taxi');
+    bool isLocalDuty = (tripType?.toLowerCase() ?? '').contains('duty');
 
     double baseFare = fare;
     double gstAmount = isLocalTaxi ? 0.0 : (baseFare * 0.05);
     double customerTotal = baseFare + gstAmount;
-    double platformFee = (vendorAmount != null && vendorAmount! > 0 && customerTotal > vendorAmount!)
-        ? (isLocalTaxi ? (customerTotal - vendorAmount!) : (baseFare * 0.10))
-        : (baseFare * 0.10);
-    double vendorEarnings = (vendorAmount != null && vendorAmount! > 0) ? vendorAmount! : (baseFare * 0.90);
+    double platformFee = isLocalDuty
+        ? (customerTotal * 0.10)
+        : ((vendorAmount != null && vendorAmount! > 0 && customerTotal > vendorAmount!)
+            ? (isLocalTaxi ? (customerTotal - vendorAmount!) : (baseFare * 0.10))
+            : (baseFare * 0.10));
+    double vendorEarnings = customerTotal - (platformFee + gstAmount);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
