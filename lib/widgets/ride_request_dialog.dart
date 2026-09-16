@@ -803,6 +803,17 @@ class _RideRequestDialogState extends State<RideRequestDialog>
                                       color: const Color(0xFFFFC107),
                                     ),
                                   ),
+                                  if (isLocal) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Net Earnings (after commission)',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white60,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                               const Spacer(),
