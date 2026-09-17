@@ -22,7 +22,6 @@ import 'compleated_List.dart';
 import 'show_map.dart';
 import 'owner_account.dart';
 import 'package:geolocator/geolocator.dart';
-import 'services/overlay_service.dart';
 import 'support_chat_page.dart';
 import 'vendor_wallet_page.dart';
 
@@ -48,6 +47,8 @@ class _BookingListPageState extends State<BookingListPage> {
   double _walletBalance = 0.0;
   double _minWalletBalance = 0.0;
   bool _isEligibleForLocalTaxi = true;
+  double _minWalletBalanceRoundTrip = 1000.0;
+  bool _isEligibleForRoundTrip = true;
 
   // Online / Offline State
   bool isOnline = true;
@@ -86,10 +87,6 @@ class _BookingListPageState extends State<BookingListPage> {
       if (message.data['notification_type'] == 'new_booking') {
         fetchBookings();
       }
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      OverlayService.instance.showPermissionPromptIfNeeded(context);
     });
   }
 
@@ -293,6 +290,8 @@ class _BookingListPageState extends State<BookingListPage> {
             _walletBalance = (data["wallet_balance"] as num?)?.toDouble() ?? 0.0;
             _minWalletBalance = (data["min_wallet_balance"] as num?)?.toDouble() ?? 0.0;
             _isEligibleForLocalTaxi = data["is_eligible_for_local_taxi"] ?? (_walletBalance > _minWalletBalance);
+            _minWalletBalanceRoundTrip = (data["min_wallet_balance_round_trip"] as num?)?.toDouble() ?? 1000.0;
+            _isEligibleForRoundTrip = data["is_eligible_for_round_trip"] ?? (_walletBalance > _minWalletBalanceRoundTrip);
             allBookings = data["bookings"] ?? [];
             bookings = _applyFilters(allBookings);
             totalTripCount = (data["acceptedBookings"] as List).length;
@@ -898,6 +897,28 @@ class _BookingListPageState extends State<BookingListPage> {
     );
   }
 
+  bool _isOneWayOrLocalTaxi(String? tripType) {
+    if (tripType == null || tripType.isEmpty) return false;
+    final lower = tripType.toLowerCase();
+    if (lower.contains('round')) return false;
+    if (lower.contains('duty')) return false;
+    return lower.contains('one-way') ||
+        lower.contains('oneway') ||
+        lower.contains('one way') ||
+        lower.contains('taxi') ||
+        lower.contains('local');
+  }
+
+  String _formatDistance(dynamic dist) {
+    if (dist == null) return '';
+    double? d = double.tryParse(dist.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
+    if (d == null || d <= 0) return '';
+    if (d == d.toInt()) {
+      return '${d.toInt()}';
+    }
+    return d.toStringAsFixed(1);
+  }
+
   Widget _buildBookingCard(Map<String, dynamic> booking) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -918,26 +939,62 @@ class _BookingListPageState extends State<BookingListPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                          color: primaryAmber.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Text(booking['trip_type'] ?? 'One-Way',
-                          style: TextStyle(
-                              color: primaryAmber,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11)),
-                    ),
-                    if (booking['date'] != null && booking['date'].toString().isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      _buildDateChip(booking['date'].toString(), booking['time']?.toString()),
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                            color: primaryAmber.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Text(booking['trip_type'] ?? 'One-Way',
+                            style: TextStyle(
+                                color: primaryAmber,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11)),
+                      ),
+                      if (_isOneWayOrLocalTaxi(booking['trip_type']) &&
+                          _formatDistance(booking['distance']).isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 4.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: const Color(0xFFBFDBFE), width: 1),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.route_rounded,
+                                  size: 13, color: Color(0xFF2563EB)),
+                              const SizedBox(width: 4),
+                              Text(
+                                "${_formatDistance(booking['distance'])} km",
+                                style: const TextStyle(
+                                  color: Color(0xFF1E40AF),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (booking['date'] != null &&
+                          booking['date'].toString().isNotEmpty) ...[
+                        _buildDateChip(booking['date'].toString(),
+                            booking['time']?.toString()),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text("ID: ${booking['booking_id']}",
                     style: const TextStyle(
                         fontWeight: FontWeight.bold,
@@ -961,7 +1018,12 @@ class _BookingListPageState extends State<BookingListPage> {
                         _locationTitle("Drop", booking['drop_location']),
                       ]),
                 ),
-                _carLabel(booking['car_type']),
+                _carLabel(
+                  booking['car_type'],
+                  _isOneWayOrLocalTaxi(booking['trip_type'])
+                      ? _formatDistance(booking['distance'])
+                      : null,
+                ),
               ],
             ),
           ),
@@ -996,14 +1058,36 @@ class _BookingListPageState extends State<BookingListPage> {
                     ),
                   ])
                 else
-                  const SizedBox.shrink(),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text("Rate / KM",
+                        style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    Text(
+                      () {
+                        double kmR = double.tryParse(booking['kmRate']?.toString() ?? '') ?? 0.0;
+                        if (kmR > 0) {
+                          return "₹${kmR.toStringAsFixed(0)}/km";
+                        }
+                        return "₹10/km";
+                      }(),
+                      style: TextStyle(
+                          color: darkCharcoal,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 19),
+                    ),
+                  ]),
                 ElevatedButton(
                   onPressed: () {
                     String tType = (booking['trip_type'] ?? '').toString();
+                    bool isRoundTrip = tType.toLowerCase().contains('round');
                     bool isLocalOrOneWay = tType.toLowerCase().contains('taxi') ||
                         tType.toLowerCase().contains('local') ||
                         tType.toLowerCase().contains('one-way') ||
                         tType.toLowerCase().contains('one way');
+                    if (isRoundTrip && !_isEligibleForRoundTrip) {
+                      _showLowWalletBalanceDialog(
+                          "Insufficient wallet balance (₹${_walletBalance.toStringAsFixed(2)}). Minimum balance of ₹${_minWalletBalanceRoundTrip.toStringAsFixed(0)} is required to accept Round-Trip trips. Please recharge your wallet.");
+                      return;
+                    }
                     if (isLocalOrOneWay && !_isEligibleForLocalTaxi) {
                       _showLowWalletBalanceDialog(
                           "Insufficient wallet balance (₹${_walletBalance.toStringAsFixed(2)}). Minimum balance of ₹${_minWalletBalance.toStringAsFixed(0)} is required to accept trips. Please recharge your wallet.");
@@ -1102,13 +1186,32 @@ class _BookingListPageState extends State<BookingListPage> {
     ]);
   }
 
-  Widget _carLabel(String? type) {
+  Widget _carLabel(String? type, [String? distanceKm]) {
     return Column(children: [
       Image.asset('assets/sadan-1.webp',
           height: 40,
           errorBuilder: (_, __, ___) => const Icon(Icons.directions_car)),
       Text(type ?? "Sedan",
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+      if (distanceKm != null && distanceKm.isNotEmpty) ...[
+        const SizedBox(height: 3),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFFBFDBFE), width: 0.8),
+          ),
+          child: Text(
+            "$distanceKm km",
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 10,
+              color: Color(0xFF1D4ED8),
+            ),
+          ),
+        ),
+      ],
     ]);
   }
 

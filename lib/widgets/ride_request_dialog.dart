@@ -18,6 +18,9 @@ class RideRequestDialog extends StatefulWidget {
   final String dropLocation;
   final String vendorAmount;
   final int countdownSeconds;
+  final String? kmRate;
+  final String? carType;
+  final String? distance;
 
   const RideRequestDialog({
     super.key,
@@ -27,6 +30,9 @@ class RideRequestDialog extends StatefulWidget {
     required this.dropLocation,
     required this.vendorAmount,
     this.countdownSeconds = 45,
+    this.kmRate,
+    this.carType,
+    this.distance,
   });
 
   static Future<void> show(
@@ -37,6 +43,9 @@ class RideRequestDialog extends StatefulWidget {
     required String dropLocation,
     required String vendorAmount,
     int countdownSeconds = 45,
+    String? kmRate,
+    String? carType,
+    String? distance,
   }) async {
     await showGeneralDialog(
       context: context,
@@ -52,6 +61,9 @@ class RideRequestDialog extends StatefulWidget {
           dropLocation: dropLocation,
           vendorAmount: vendorAmount,
           countdownSeconds: countdownSeconds,
+          kmRate: kmRate,
+          carType: carType,
+          distance: distance,
         );
       },
       transitionBuilder: (ctx, anim1, anim2, child) {
@@ -90,11 +102,39 @@ class _RideRequestDialogState extends State<RideRequestDialog>
   bool isLoadingAssets = true;
   bool isAccepting = false;
   bool _isVibrationEnabled = true;
+  String? _kmRate;
+  String? _carType;
+  String? _distance;
+
+  bool _isOneWayOrLocalTaxi(String? type) {
+    if (type == null || type.isEmpty) return false;
+    final lower = type.toLowerCase();
+    if (lower.contains('round')) return false;
+    if (lower.contains('duty')) return false;
+    return lower.contains('one-way') ||
+        lower.contains('oneway') ||
+        lower.contains('one way') ||
+        lower.contains('taxi') ||
+        lower.contains('local');
+  }
+
+  String _formatDistance(dynamic dist) {
+    if (dist == null) return '';
+    double? d = double.tryParse(dist.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
+    if (d == null || d <= 0) return '';
+    if (d == d.toInt()) {
+      return '${d.toInt()}';
+    }
+    return d.toStringAsFixed(1);
+  }
 
   @override
   void initState() {
     super.initState();
     _remainingSeconds = widget.countdownSeconds;
+    _kmRate = widget.kmRate;
+    _carType = widget.carType;
+    _distance = widget.distance;
     _checkVibrationPref();
 
     _progressController = AnimationController(
@@ -118,6 +158,32 @@ class _RideRequestDialogState extends State<RideRequestDialog>
     });
 
     _fetchAssets();
+    _fetchBookingInfo();
+  }
+
+  Future<void> _fetchBookingInfo() async {
+    try {
+      final res = await http.get(Uri.parse(
+          "${ApiConfig.getBookingDetails}?booking_id=${widget.bookingId}"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['data'] != null) {
+          final rate = data['data']['kmRate']?.toString() ??
+              data['data']['per_km_charge']?.toString();
+          final cType = data['data']['car_type']?.toString();
+          final dist = data['data']['distance']?.toString();
+          if (mounted) {
+            setState(() {
+              if (rate != null && rate.isNotEmpty) _kmRate = rate;
+              if (cType != null && cType.isNotEmpty) _carType = cType;
+              if (dist != null && dist.isNotEmpty) _distance = dist;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching booking details in dialog: $e");
+    }
   }
 
   Future<void> _checkVibrationPref() async {
@@ -629,7 +695,18 @@ class _RideRequestDialogState extends State<RideRequestDialog>
   Widget build(BuildContext context) {
     final isLocal = widget.tripType.toLowerCase().contains('local') ||
         widget.tripType.toLowerCase().contains('taxi');
+    final isRoundTrip = widget.tripType.toLowerCase().contains('round');
+    final isOneWayOrLocal = _isOneWayOrLocalTaxi(widget.tripType);
+    final String formattedDist = _formatDistance(_distance);
+    final bool hasDistance = isOneWayOrLocal && formattedDist.isNotEmpty;
     final double amount = double.tryParse(widget.vendorAmount) ?? 0.0;
+    final double kmRateNum =
+        double.tryParse(_kmRate ?? widget.kmRate ?? '') ?? 0.0;
+    final String kmRateDisplay = kmRateNum > 0
+        ? kmRateNum.toStringAsFixed(0)
+        : (_kmRate != null && _kmRate!.isNotEmpty && _kmRate != '0'
+            ? _kmRate!
+            : '10');
 
     return Center(
       child: Material(
@@ -679,50 +756,128 @@ class _RideRequestDialogState extends State<RideRequestDialog>
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isLocal
-                              ? const Color(0xFFE8F5E9)
-                              : const Color(0xFFFFF8E1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isLocal
-                                ? const Color(0xFF4CAF50)
-                                : const Color(0xFFFFB300),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Icon(
-                              isLocal
-                                  ? Icons.local_taxi
-                                  : Icons.directions_car_filled,
-                              size: 16,
-                              color: isLocal
-                                  ? const Color(0xFF2E7D32)
-                                  : const Color(0xFFE65100),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              widget.tripType.toUpperCase(),
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
                                 color: isLocal
-                                    ? const Color(0xFF2E7D32)
-                                    : const Color(0xFFE65100),
-                                letterSpacing: 0.5,
+                                    ? const Color(0xFFE8F5E9)
+                                    : const Color(0xFFFFF8E1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isLocal
+                                      ? const Color(0xFF4CAF50)
+                                      : const Color(0xFFFFB300),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isLocal
+                                        ? Icons.local_taxi
+                                        : Icons.directions_car_filled,
+                                    size: 15,
+                                    color: isLocal
+                                        ? const Color(0xFF2E7D32)
+                                        : const Color(0xFFE65100),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    widget.tripType.toUpperCase(),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: isLocal
+                                          ? const Color(0xFF2E7D32)
+                                          : const Color(0xFFE65100),
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            if (_carType != null && _carType!.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 9, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: const Color(0xFF3B82F6),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.directions_car_rounded,
+                                      size: 13,
+                                      color: Color(0xFF1D4ED8),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _carType!.toUpperCase(),
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF1D4ED8),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (hasDistance) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 9, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: const Color(0xFF22C55E),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.route_rounded,
+                                      size: 13,
+                                      color: Color(0xFF15803D),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '$formattedDist KM',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF15803D),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       // Countdown Pill
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -734,6 +889,7 @@ class _RideRequestDialogState extends State<RideRequestDialog>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.timer_outlined,
@@ -780,57 +936,167 @@ class _RideRequestDialogState extends State<RideRequestDialog>
                             ),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Row(
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'ESTIMATED EARNINGS',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 1.0,
-                                      color: Colors.white70,
+                          child: isRoundTrip
+                              ? Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'RATE PER KM',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 1.0,
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.baseline,
+                                            textBaseline:
+                                                TextBaseline.alphabetic,
+                                            children: [
+                                              Text(
+                                                '₹$kmRateDisplay',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 26,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: const Color(0xFFFFC107),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '/ km',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white70,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Amount will show after trip completion',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.white60,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '₹${amount > 0 ? amount.toStringAsFixed(0) : widget.vendorAmount}',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.w800,
-                                      color: const Color(0xFFFFC107),
-                                    ),
-                                  ),
-                                  if (isLocal) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Net Earnings (after commission)',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.white60,
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.speed_rounded,
+                                        color: Color(0xFFFFC107),
+                                        size: 24,
                                       ),
                                     ),
                                   ],
-                                ],
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
+                                )
+                              : Row(
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'ESTIMATED EARNINGS',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 1.0,
+                                            color: Colors.white70,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '₹${amount > 0 ? amount.toStringAsFixed(0) : widget.vendorAmount}',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 26,
+                                            fontWeight: FontWeight.w800,
+                                            color: const Color(0xFFFFC107),
+                                          ),
+                                        ),
+                                        if (isLocal) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Net Earnings (after commission)',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.white60,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const Spacer(),
+                                    if (hasDistance) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.15),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'DISTANCE',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.8,
+                                                color: Colors.white60,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 1),
+                                            Text(
+                                              '$formattedDist KM',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w800,
+                                                color: const Color(0xFFFFC107),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ] else ...[
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              Colors.white.withValues(alpha: 0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.account_balance_wallet_outlined,
+                                          color: Color(0xFFFFC107),
+                                          size: 24,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                                child: const Icon(
-                                  Icons.account_balance_wallet_outlined,
-                                  color: Color(0xFFFFC107),
-                                  size: 24,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
 
                         // Route Details (Pickup & Drop)
@@ -891,14 +1157,51 @@ class _RideRequestDialogState extends State<RideRequestDialog>
 
                               if (widget.dropLocation.isNotEmpty) ...[
                                 Padding(
-                                  padding: const EdgeInsets.only(left: 6),
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Container(
-                                      width: 2,
-                                      height: 16,
-                                      color: Colors.grey.shade300,
-                                    ),
+                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  child: Row(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 6),
+                                        child: Container(
+                                          width: 2,
+                                          height: hasDistance ? 20 : 16,
+                                          color: Colors.grey.shade300,
+                                        ),
+                                      ),
+                                      if (hasDistance) ...[
+                                        const SizedBox(width: 14),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF1F5F9),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                                color: const Color(0xFFE2E8F0)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.straighten_rounded,
+                                                size: 11,
+                                                color: Color(0xFF64748B),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '$formattedDist km trip',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: const Color(0xFF475569),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 // Drop
@@ -1136,6 +1439,40 @@ class _RideRequestDialogState extends State<RideRequestDialog>
                 ),
             ],
           ),
+          if (_carType != null && _carType!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.directions_car_filled,
+                      size: 16, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Booked Car: ',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF475569),
+                    ),
+                  ),
+                  Text(
+                    _carType!.toUpperCase(),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF1E40AF),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
 
           if (isLoadingAssets)

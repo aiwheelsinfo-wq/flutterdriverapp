@@ -321,10 +321,16 @@ class _CompleatedListState extends State<CompleatedList> {
                           double rtToll = double.tryParse(booking['toll_charge']?.toString() ?? '0') ?? 0.0;
                           double rtPermit = double.tryParse(booking['permit_charge']?.toString() ?? '0') ?? 0.0;
 
-                          double finalTotalAmount = baseFare + driverAllowance + gstAmount + rtPark + rtToll + rtPermit;
-                          double baseAdvance = rtDailyLimit * 4.0 * rtDays;
-                          double remainingCollect = finalTotalAmount - baseAdvance;
-                          if (remainingCollect < 0) remainingCollect = 0.0;
+                          double finalTotalAmount = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                          if (finalTotalAmount == 0) {
+                            finalTotalAmount = baseFare + driverAllowance + gstAmount + rtPark + rtToll + rtPermit;
+                          }
+                          double advancePaid = double.tryParse(booking['paid_amount']?.toString() ?? '0') ?? 0.0;
+                          String payType = (booking['payment_type'] ?? '').toString();
+                          if (payType.toLowerCase().contains('driver') || payType.toLowerCase().contains('cash')) {
+                            advancePaid = 0.0;
+                          }
+                          double remainingCollect = (finalTotalAmount - advancePaid).clamp(0, double.infinity);
 
                           return Text("₹${remainingCollect.toStringAsFixed(2)}",
                               style: const TextStyle(
@@ -549,18 +555,27 @@ class _CompleatedListState extends State<CompleatedList> {
                         double rtToll = double.tryParse(booking['toll_charge']?.toString() ?? '0') ?? 0.0;
                         double rtPermit = double.tryParse(booking['permit_charge']?.toString() ?? '0') ?? 0.0;
 
-                        double finalTotalAmount = baseFare + driverAllowance + gstAmount + rtPark + rtToll + rtPermit;
-                        double baseAdvance = rtDailyLimit * 4.0 * rtDays;
-                        double remainingCollect = finalTotalAmount - baseAdvance;
-                        if (remainingCollect < 0) remainingCollect = 0.0;
+                        double finalTotalAmount = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        if (finalTotalAmount == 0) {
+                          finalTotalAmount = baseFare + driverAllowance + gstAmount + rtPark + rtToll + rtPermit;
+                        }
+
+                        double advancePaid = double.tryParse(booking['paid_amount']?.toString() ?? '0') ?? 0.0;
+                        String payType = (booking['payment_type'] ?? '').toString();
+                        if (payType.toLowerCase().contains('driver') || payType.toLowerCase().contains('cash')) {
+                          advancePaid = 0.0;
+                        }
+                        double remainingCollect = (finalTotalAmount - advancePaid).clamp(0, double.infinity);
 
                         double vendorAmount = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
                         if (vendorAmount == 0) {
-                          vendorAmount = (rtDailyLimit * 11.0 * rtDays) + driverAllowance;
+                          vendorAmount = max(0, finalTotalAmount * 0.85);
                         }
-                        
-                        double settlementDue = vendorAmount + baseAdvance - finalTotalAmount;
-                        if (settlementDue < 0) settlementDue = 0.0;
+
+                        double platformDeduction = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
+                        if (platformDeduction == 0 && finalTotalAmount > vendorAmount) {
+                          platformDeduction = finalTotalAmount - vendorAmount;
+                        }
 
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -585,10 +600,12 @@ class _CompleatedListState extends State<CompleatedList> {
                               if (rtPermit > 0) _buildFinancialSummaryRow("Permit Charges", "₹${rtPermit.toStringAsFixed(0)}"),
                               const Divider(height: 16, thickness: 0.8),
                               _buildFinancialSummaryRow("Total Trip Amount", "₹${finalTotalAmount.toStringAsFixed(0)}"),
-                              _buildFinancialSummaryRow("Customer Advance Paid Online (₹4/KM)", "₹${baseAdvance.toStringAsFixed(0)}"),
-                              _buildFinancialSummaryRow("Remaining Balance to Collect", "₹${remainingCollect.toStringAsFixed(0)}", isHighlight: true),
-                              _buildFinancialSummaryRow("Your Share (Vendor Earning)", "₹${vendorAmount.toStringAsFixed(0)}"),
-                              _buildFinancialSummaryRow("Due from Rentox (Settlement)", "₹${settlementDue.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
+                              if (advancePaid > 0)
+                                _buildFinancialSummaryRow("Customer Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("Payable to Driver (Cash/UPI)", "₹${remainingCollect.toStringAsFixed(0)}", isHighlight: true),
+                              _buildFinancialSummaryRow("Your Net Earnings", "₹${vendorAmount.toStringAsFixed(0)}"),
+                              if (platformDeduction > 0)
+                                _buildFinancialSummaryRow("Wallet Deducted (Commission + GST)", "₹${platformDeduction.toStringAsFixed(0)}", isHighlight: true, highlightColor: const Color(0xFF7C3AED)),
                             ],
                           ),
                         );

@@ -78,6 +78,9 @@ class OverlayService {
             dropLocation: data['drop_location']?.toString() ?? '',
             vendorAmount: data['vendor_amount']?.toString() ?? '0',
             countdownSeconds: countdownSec,
+            kmRate: data['km_rate']?.toString() ?? data['kmRate']?.toString(),
+            carType: data['car_type']?.toString() ?? data['carType']?.toString(),
+            distance: data['distance']?.toString(),
           );
         }
       }
@@ -86,77 +89,9 @@ class OverlayService {
     }
   }
 
-  /// Shows an Uber/Ola style permission prompt modal to the driver
+  /// Shows an Uber/Ola style permission prompt modal to the driver (Disabled per user request)
   Future<void> showPermissionPromptIfNeeded(BuildContext context) async {
-    try {
-      final bool isGranted = await hasPermission();
-      if (isGranted) return;
-      if (!context.mounted) return;
-
-      await showDialog(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            backgroundColor: Colors.white,
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.layers, color: Color(0xFFF59E0B)),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    "Floating Ride Alerts",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF111827),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: const Text(
-              "Enable 'Display Over Other Apps' so you never miss trip requests while using Google Maps or navigation .\n\nTrip requests will automatically pop up with a countdown timer on top of any active screen.",
-              style: TextStyle(fontSize: 14, color: Color(0xFF4B5563), height: 1.45),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text(
-                  "Later",
-                  style: TextStyle(color: Color(0xFF9CA3AF), fontWeight: FontWeight.bold),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  Navigator.of(ctx).pop();
-                  await requestPermission();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF59E0B),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                ),
-                child: const Text(
-                  "Enable Now",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    } catch (e) {
-      debugPrint("⚠️ Overlay permission prompt error: $e");
-    }
+    // Disabled: Floating overlay permission prompt removed per user request
+    return;
   }
 }

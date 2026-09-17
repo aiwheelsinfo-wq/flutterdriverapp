@@ -618,6 +618,13 @@ class _CarListPageState extends State<CarListPage> {
                           style: TextStyle(
                               color: kAmber,
                               fontWeight: FontWeight.bold,
+                              fontSize: 14))
+                    else if (b["kmRate"] != null && (double.tryParse(b["kmRate"].toString()) ?? 0) > 0)
+                      Text(
+                          "₹${(double.tryParse(b["kmRate"].toString()) ?? 0).toStringAsFixed(0)}/km",
+                          style: TextStyle(
+                              color: kAmber,
+                              fontWeight: FontWeight.bold,
                               fontSize: 14)),
                   ],
                 ),
