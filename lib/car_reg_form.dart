@@ -56,7 +56,15 @@ class _CarFormPageState extends State<CarFormPage> {
   bool isSubmittingOtp = false;
   String? otpErrorText;
 
-  List<String> _carCategories = ['SEDAN', 'ERTIGA', 'INNOVA', 'CRYSTA'];
+  List<String> _carCategories = [
+    'SEDAN',
+    'SUV',
+    'ERTIGA',
+    'INNOVA',
+    'CRYSTA',
+    'HATCHBACK',
+    'TEMPO_TRAVELLER'
+  ];
   String? _selectedCarCategory;
 
   // Professional Amber Theme Palette
@@ -281,6 +289,15 @@ class _CarFormPageState extends State<CarFormPage> {
         'plate_color': _selectedPlateColor,
         'phone_number': phoneNumber,
       };
+
+      if (widget.carData != null && widget.carData!['id'] != null) {
+        data['id'] = widget.carData!['id'];
+      }
+
+      if (_controllers['vehicle_id']!.text.trim().isEmpty) {
+        _controllers['vehicle_id']!.text = _controllers['rc_no']!.text.trim().replaceAll(RegExp(r'[\s\-]'), '').toUpperCase();
+      }
+      data['vehicle_id'] = _controllers['vehicle_id']!.text.trim();
 
       _controllers.forEach((key, controller) {
         if (key.contains('doe') ||

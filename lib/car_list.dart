@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/foundation.dart';
 import 'car_reg_form.dart';
+import 'test_car_reg_form.dart';
 import 'api_config.dart';
 import 'booking_list.dart';
 import 'driver_list.dart';
@@ -247,6 +249,16 @@ class _CarListPageState extends State<CarListPage> {
                     );
                     fetchCars();
                   },
+                  onLongPress: () async {
+                    // Quick shortcut: long-press opens Sandbox Test Form
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TestCarFormPage(),
+                      ),
+                    );
+                    fetchCars();
+                  },
                   icon: const Icon(Icons.add_rounded, size: 18, color: Color(0xFF171717)),
                   label: const Text(
                     "Add Car",
@@ -267,6 +279,41 @@ class _CarListPageState extends State<CarListPage> {
                   ),
                 ),
               ),
+              if (kDebugMode) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TestCarFormPage(),
+                        ),
+                      );
+                      fetchCars();
+                    },
+                    icon: const Icon(Icons.science_rounded, size: 16, color: Colors.white),
+                    label: const Text(
+                      "🧪 Test",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6A1B9A),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -53,6 +53,7 @@ class ApiConfig {
   static const String verifyRc = "$driverPath/verify_rc.php";
   static const String sendRcOtp = "$driverPath/send_rc_otp.php";
   static const String verifyRcOtp = "$driverPath/verify_rc_otp.php";
+  static const String testMockRc = "$driverPath/test_mock_rc.php";
   static const String supportChat = "$baseUrl/admin2025/support_chat.php";
   static const String vendorWallet = "$driverPath/vendor_wallet.php";
 
