@@ -341,33 +341,18 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
 
       if (mapUri != null && await canLaunchUrl(mapUri)) {
         await launchUrl(mapUri, mode: LaunchMode.externalApplication);
-      } else {
-        String query = "";
-        if (toLatLng != null) {
-          query = "${toLatLng!.latitude},${toLatLng!.longitude}";
-        } else if (toAddress.isNotEmpty &&
-            toAddress != "Local Trip / Drop" &&
-            toAddress != "Local Duty" &&
-            toAddress != "N/A") {
-          query = Uri.encodeComponent(toAddress);
-        }
-
-        if (query.isNotEmpty) {
-          final webUrl = Uri.parse(
-              "https://www.google.com/maps/search/?api=1&query=$query");
-          await launchUrl(webUrl, mode: LaunchMode.externalApplication);
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                    "No destination set for this local trip. You can navigate freely."),
-                backgroundColor: Colors.black87,
-              ),
-            );
-          }
-        }
+        return;
       }
+
+      // If no specific drop address (Local Duty), launch Google Maps directly for the driver
+      final genericMapUri = Uri.parse("geo:0,0");
+      if (await canLaunchUrl(genericMapUri)) {
+        await launchUrl(genericMapUri, mode: LaunchMode.externalApplication);
+        return;
+      }
+
+      final webMaps = Uri.parse("https://www.google.com/maps");
+      await launchUrl(webMaps, mode: LaunchMode.externalApplication);
     } catch (e) {
       debugPrint("Error opening Google Maps navigation: $e");
     }
@@ -389,8 +374,8 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
                   children: [
                     TileLayer(
                       urlTemplate:
-                          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png", // Professional "Light" map style
-                      subdomains: const ['a', 'b', 'c'],
+                          "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                      userAgentPackageName: "com.AgniDriver.agnidriver2025",
                     ),
                     PolylineLayer(
                       polylines: [
