@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart'; // Essential for flutter_map
@@ -6,6 +7,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:location/location.dart' as loc;
+import 'package:url_launcher/url_launcher.dart';
 
 import 'endingKmInputPage.dart';
 import 'api_config.dart';
@@ -29,6 +31,8 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
   final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
   final loc.Location location = loc.Location();
   final MapController _mapController = MapController();
+  StreamSubscription<loc.LocationData>? _locationSubscription;
+  bool _isBackgroundEnabled = false;
 
   LatLng? fromLatLng;
   LatLng? toLatLng;
@@ -195,13 +199,43 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
     try {
       loc.PermissionStatus permissionGranted = await location.hasPermission();
       if (permissionGranted != loc.PermissionStatus.granted) {
-        debugPrint("Cannot start location updates: permission not granted.");
-        return;
+        permissionGranted = await location.requestPermission();
+        if (permissionGranted != loc.PermissionStatus.granted) {
+          debugPrint("Cannot start location updates: permission not granted.");
+          return;
+        }
       }
 
-      location.changeSettings(
-          interval: 8000, accuracy: loc.LocationAccuracy.high);
-      location.onLocationChanged.listen((loc.LocationData currentLocation) async {
+      // Configure persistent foreground notification for Android background execution
+      try {
+        await location.changeNotificationOptions(
+          channelName: 'Rentox Live Trip Tracking',
+          title: 'Rentox Driver — Trip In Progress',
+          subtitle: 'Live distance & route tracking is active',
+          description: 'GPS calculating km in background',
+          color: const Color(0xFFFFB300),
+          onTapBringToFront: true,
+        );
+        final bgSuccess = await location.enableBackgroundMode(enable: true);
+        if (mounted) {
+          setState(() {
+            _isBackgroundEnabled = bgSuccess;
+          });
+        } else {
+          _isBackgroundEnabled = bgSuccess;
+        }
+        debugPrint("✅ Background location mode enabled: $_isBackgroundEnabled");
+      } catch (bgError) {
+        debugPrint("⚠️ Background mode initialization warning: $bgError");
+      }
+
+      await location.changeSettings(
+        interval: 5000,
+        accuracy: loc.LocationAccuracy.high,
+      );
+
+      _locationSubscription?.cancel();
+      _locationSubscription = location.onLocationChanged.listen((loc.LocationData currentLocation) async {
         if (currentLocation.latitude != null &&
             currentLocation.longitude != null) {
           final double lat = currentLocation.latitude!;
@@ -209,38 +243,41 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
           final double speedKmh = (currentLocation.speed ?? 0.0) * 3.6;
           final double accuracy = currentLocation.accuracy ?? 99.0;
 
-          setState(() {
-            driverSpeed = currentLocation.speed ?? 0.0;
-            driverLatLng = LatLng(lat, lng);
+          // 1. Distance Calculation (runs ALWAYS, whether app is in foreground or minimized)
+          if (accuracy <= 40.0) {
+            if (lastTrackedPosition != null) {
+              final double deltaKm = _calculateHaversineKm(
+                lastTrackedPosition!.latitude,
+                lastTrackedPosition!.longitude,
+                lat,
+                lng,
+              );
+              final double deltaM = deltaKm * 1000.0;
+              final bool isStationaryJitter = speedKmh < 1.5 && deltaM < 15.0;
+              final bool isJump = deltaM > 600.0 && speedKmh < 40.0;
 
-            // Jitter & Noise Filter (filter GPS drift when car is stopped)
-            if (accuracy <= 40.0) {
-              if (lastTrackedPosition != null) {
-                final double deltaKm = _calculateHaversineKm(
-                  lastTrackedPosition!.latitude,
-                  lastTrackedPosition!.longitude,
-                  lat,
-                  lng,
-                );
-                final double deltaM = deltaKm * 1000.0;
-                final bool isStationaryJitter = speedKmh < 1.5 && deltaM < 15.0;
-                final bool isJump = deltaM > 600.0 && speedKmh < 40.0;
-
-                if (!isStationaryJitter && !isJump && deltaM >= 10.0) {
-                  accumulatedDistanceKm += deltaKm;
-                  lastTrackedPosition = LatLng(lat, lng);
-                }
-              } else {
+              if (!isStationaryJitter && !isJump && deltaM >= 10.0) {
+                accumulatedDistanceKm += deltaKm;
                 lastTrackedPosition = LatLng(lat, lng);
               }
+            } else {
+              lastTrackedPosition = LatLng(lat, lng);
             }
-          });
-
-          if (followDriver) {
-            _mapController.move(driverLatLng, _mapController.camera.zoom);
           }
 
-          // 1. Update driver live location
+          // 2. UI Updates (if app is visible / mounted)
+          if (mounted) {
+            setState(() {
+              driverSpeed = currentLocation.speed ?? 0.0;
+              driverLatLng = LatLng(lat, lng);
+            });
+
+            if (followDriver) {
+              _mapController.move(driverLatLng, _mapController.camera.zoom);
+            }
+          }
+
+          // 3. Update driver live location
           await http.post(
             Uri.parse(ApiConfig.updateLocation),
             body: {
@@ -250,9 +287,9 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
             },
           );
 
-          // 2. Sync GPS accumulated KM and breadcrumbs every 25 seconds
+          // 4. Sync GPS accumulated KM and breadcrumbs every 20 seconds
           final now = DateTime.now();
-          if (lastSyncTime == null || now.difference(lastSyncTime!).inSeconds >= 25) {
+          if (lastSyncTime == null || now.difference(lastSyncTime!).inSeconds >= 20) {
             lastSyncTime = now;
             try {
               await http.post(
@@ -276,6 +313,63 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
       });
     } catch (e) {
       debugPrint("Live location update error: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    _locationSubscription?.cancel();
+    try {
+      location.enableBackgroundMode(enable: false);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  Future<void> _openGoogleMapsNavigation() async {
+    try {
+      Uri? mapUri;
+      if (toLatLng != null) {
+        mapUri = Uri.parse(
+            "google.navigation:q=${toLatLng!.latitude},${toLatLng!.longitude}&mode=d");
+      } else if (toAddress.isNotEmpty &&
+          toAddress != "Local Trip / Drop" &&
+          toAddress != "Local Duty" &&
+          toAddress != "N/A") {
+        mapUri = Uri.parse(
+            "google.navigation:q=${Uri.encodeComponent(toAddress)}&mode=d");
+      }
+
+      if (mapUri != null && await canLaunchUrl(mapUri)) {
+        await launchUrl(mapUri, mode: LaunchMode.externalApplication);
+      } else {
+        String query = "";
+        if (toLatLng != null) {
+          query = "${toLatLng!.latitude},${toLatLng!.longitude}";
+        } else if (toAddress.isNotEmpty &&
+            toAddress != "Local Trip / Drop" &&
+            toAddress != "Local Duty" &&
+            toAddress != "N/A") {
+          query = Uri.encodeComponent(toAddress);
+        }
+
+        if (query.isNotEmpty) {
+          final webUrl = Uri.parse(
+              "https://www.google.com/maps/search/?api=1&query=$query");
+          await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    "No destination set for this local trip. You can navigate freely."),
+                backgroundColor: Colors.black87,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error opening Google Maps navigation: $e");
     }
   }
 
@@ -422,6 +516,17 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
             "${accumulatedDistanceKm.toStringAsFixed(1)} KM",
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
           ),
+          if (_isBackgroundEnabled) ...[
+            const SizedBox(width: 6),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Color(0xFF4ADE80),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -442,15 +547,6 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
     );
   }
 
-  Widget _buildMapActionBtn(
-      {required IconData icon, required VoidCallback onTap}) {
-    return FloatingActionButton.small(
-      heroTag: null,
-      backgroundColor: Colors.white,
-      onPressed: onTap,
-      child: Icon(icon, color: Colors.black87),
-    );
-  }
 
   Widget _buildTripDetailCard() {
     return Positioned(
@@ -502,35 +598,66 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
               ],
             ),
             const Divider(height: 30),
-            // Action Button
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EndingKmInputPage(
-                        bookingId: widget.bookingId,
-                        gpsDistanceKm: accumulatedDistanceKm,
+            // Action Buttons (Google Maps Navigation + Finish Trip)
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: _openGoogleMapsNavigation,
+                      icon: const Icon(Icons.navigation_rounded, size: 18, color: Color(0xFF0284C7)),
+                      label: const Text(
+                        "Google Maps",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFBAE6FD), width: 1.5),
+                        backgroundColor: const Color(0xFFF0F9FF),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber.shade600,
-                  foregroundColor: Colors.black87,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                  ),
                 ),
-                child: const Text("FINISH TRIP",
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2)),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 3,
+                  child: SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EndingKmInputPage(
+                              bookingId: widget.bookingId,
+                              gpsDistanceKm: accumulatedDistanceKm,
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber.shade600,
+                        foregroundColor: Colors.black87,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text("FINISH TRIP",
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.1)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
