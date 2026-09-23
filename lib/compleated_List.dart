@@ -272,7 +272,9 @@ class _CompleatedListState extends State<CompleatedList> {
                     Text(
                         (booking['trip_type'] ?? '').toString().toLowerCase().contains('round')
                             ? "Remaining Balance"
-                            : "Partner Earning",
+                            : ((booking['trip_type'] ?? '').toString().toLowerCase().contains('duty')
+                                ? "Collect & Earning"
+                                : "Partner Earning"),
                         style: const TextStyle(
                             color: Colors.grey,
                             fontWeight: FontWeight.bold,
@@ -337,6 +339,57 @@ class _CompleatedListState extends State<CompleatedList> {
                                   color: primaryAmber,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16));
+                        }
+                        if (tType.contains('duty')) {
+                          double totalFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                          double advancePaid = double.tryParse(booking['paid_amount']?.toString() ?? '0') ?? 0.0;
+                          String payType = (booking['payment_type'] ?? '').toString();
+                          if (payType.toLowerCase().contains('driver') || payType.toLowerCase().contains('cash')) {
+                            advancePaid = 0.0;
+                          }
+                          double collectAmount = (totalFare - advancePaid).clamp(0, double.infinity);
+                          double netEarning = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                          if (netEarning == 0 && totalFare > 0) {
+                            netEarning = totalFare * 0.90;
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text("Collect: ",
+                                      style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600)),
+                                  Text("₹${collectAmount.toStringAsFixed(0)}",
+                                      style: const TextStyle(
+                                          color: primaryAmber,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 15)),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text("Net: ",
+                                      style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500)),
+                                  Text("₹${netEarning.toStringAsFixed(0)}",
+                                      style: const TextStyle(
+                                          color: Color(0xFF34D399),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12)),
+                                ],
+                              ),
+                            ],
+                          );
                         }
                         if (tType.contains('local') && tType.contains('taxi')) {
                           double vAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
@@ -439,13 +492,16 @@ class _CompleatedListState extends State<CompleatedList> {
             ),
           ),
 
-          // Fare breakdown for One-way trips
+          // Fare breakdown for trips
           if ((booking['trip_type'] ?? '').toString().toLowerCase().contains('one-way') ||
               (booking['trip_type'] ?? '').toString().toLowerCase().contains('one way') ||
               (booking['trip_type'] ?? '').toString().toLowerCase().contains('round') ||
               (booking['trip_type'] ?? '').toString().toLowerCase().contains('local-taxi') ||
               (booking['trip_type'] ?? '').toString().toLowerCase().contains('local_taxi') ||
-              (booking['trip_type'] ?? '').toString().toLowerCase().contains('local taxi')) ...[
+              (booking['trip_type'] ?? '').toString().toLowerCase().contains('local taxi') ||
+              (booking['trip_type'] ?? '').toString().toLowerCase().contains('local-duty') ||
+              (booking['trip_type'] ?? '').toString().toLowerCase().contains('local duty') ||
+              (booking['trip_type'] ?? '').toString().toLowerCase().contains('duty')) ...[
             Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
@@ -504,6 +560,105 @@ class _CompleatedListState extends State<CompleatedList> {
                                     Expanded(
                                       child: Text(
                                         "Trip completed successfully. 100% fare was collected directly from the customer, and the platform fee was deducted from your prepaid wallet.",
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.green[900],
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      if (tType.contains('duty')) {
+                        double totalFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
+                        double baseCharge = double.tryParse(booking['base_charge']?.toString() ?? '') ?? 
+                            (double.tryParse(booking['baseAmount']?.toString() ?? '') ?? 0.0);
+                        if (baseCharge == 0 && totalFare > 0) {
+                          baseCharge = 2200.0;
+                        }
+                        double parkingCharge = double.tryParse(booking['parking_charge']?.toString() ?? '0') ?? 0.0;
+                        double tollCharge = double.tryParse(booking['toll_charge']?.toString() ?? '0') ?? 0.0;
+
+                        double subtotalBeforeGst = baseCharge + parkingCharge + tollCharge;
+                        double totalGst = (totalFare > subtotalBeforeGst) 
+                            ? (totalFare - subtotalBeforeGst) 
+                            : (subtotalBeforeGst * 0.05);
+                        double cgst = totalGst / 2;
+                        double sgst = totalGst / 2;
+
+                        if (totalFare == 0) {
+                          totalFare = subtotalBeforeGst + totalGst;
+                        }
+
+                        double advancePaid = double.tryParse(booking['paid_amount']?.toString() ?? '0') ?? 0.0;
+                        String payType = (booking['payment_type'] ?? '').toString();
+                        if (payType.toLowerCase().contains('driver') || payType.toLowerCase().contains('cash')) {
+                          advancePaid = 0.0;
+                        }
+                        double collectFromCustomer = (totalFare - advancePaid).clamp(0, double.infinity);
+
+                        double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                        if (vendorEarnings == 0 && totalFare > 0) {
+                          vendorEarnings = totalFare * 0.90;
+                        }
+
+                        double platformCommission = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
+                        if (platformCommission == 0 && totalFare > vendorEarnings) {
+                          platformCommission = totalFare - vendorEarnings;
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildFinancialSummaryRow("Package Base Fare", "₹${baseCharge.toStringAsFixed(0)} (80 KM / 8 Hours)"),
+                              if (parkingCharge > 0)
+                                _buildFinancialSummaryRow("Parking Charges", "₹${parkingCharge.toStringAsFixed(0)}"),
+                              if (tollCharge > 0)
+                                _buildFinancialSummaryRow("Toll Charges", "₹${tollCharge.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("CGST (2.5%)", "₹${cgst.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("SGST (2.5%)", "₹${sgst.toStringAsFixed(0)}"),
+                              const Divider(height: 16, thickness: 0.8),
+                              _buildFinancialSummaryRow("Total Customer Bill", "₹${totalFare.toStringAsFixed(0)}"),
+                              if (advancePaid > 0)
+                                _buildFinancialSummaryRow("Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow(
+                                "Collect from Customer",
+                                "₹${collectFromCustomer.toStringAsFixed(0)}",
+                                isHighlight: true,
+                                highlightColor: const Color(0xFFD97706),
+                              ),
+                              _buildFinancialSummaryRow("Platform Fee (Wallet Deducted)", "₹${platformCommission.toStringAsFixed(0)}"),
+                              const Divider(height: 16, thickness: 0.8),
+                              _buildFinancialSummaryRow(
+                                "Your Net Earning",
+                                "₹${vendorEarnings.toStringAsFixed(0)}",
+                                isHighlight: true,
+                                highlightColor: Colors.green,
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.green[50],
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.green.shade100),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(Icons.check_circle_outline, color: Colors.green[800], size: 16),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        "Local Duty completed. Collect ₹${collectFromCustomer.toStringAsFixed(0)} from customer via Cash or UPI. Platform fee was deducted from your prepaid wallet.",
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: Colors.green[900],
