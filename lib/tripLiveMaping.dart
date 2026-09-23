@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart'; // Essential for flutter_map
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:location/location.dart' as loc;
 
@@ -37,6 +38,11 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
   bool isLoading = true;
   bool followDriver = true;
   double driverSpeed = 0.0;
+
+  // Real-time Automated GPS Distance Tracking
+  double accumulatedDistanceKm = 0.0;
+  LatLng? lastTrackedPosition;
+  DateTime? lastSyncTime;
 
   String fromAddress = "Loading...";
   String toAddress = "Loading...";
@@ -89,6 +95,10 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
 
       fromAddress = bookingData['from_address'] ?? "";
       toAddress = bookingData['to_address'] ?? "";
+
+      if (bookingData['gps_accumulated_km'] != null) {
+        accumulatedDistanceKm = double.tryParse(bookingData['gps_accumulated_km'].toString()) ?? 0.0;
+      }
 
       try {
         if (fromAddress.isNotEmpty) {
@@ -173,6 +183,14 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
     }
   }
 
+  double _calculateHaversineKm(double lat1, double lon1, double lat2, double lon2) {
+    const double p = 0.017453292519943295; // pi / 180
+    final double a = 0.5 -
+        cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a)); // 2 * EarthRadius (6371km)
+  }
+
   Future<void> _startLiveLocationUpdate() async {
     try {
       loc.PermissionStatus permissionGranted = await location.hasPermission();
@@ -186,24 +204,74 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
       location.onLocationChanged.listen((loc.LocationData currentLocation) async {
         if (currentLocation.latitude != null &&
             currentLocation.longitude != null) {
+          final double lat = currentLocation.latitude!;
+          final double lng = currentLocation.longitude!;
+          final double speedKmh = (currentLocation.speed ?? 0.0) * 3.6;
+          final double accuracy = currentLocation.accuracy ?? 99.0;
+
           setState(() {
             driverSpeed = currentLocation.speed ?? 0.0;
-            driverLatLng =
-                LatLng(currentLocation.latitude!, currentLocation.longitude!);
+            driverLatLng = LatLng(lat, lng);
+
+            // Jitter & Noise Filter (filter GPS drift when car is stopped)
+            if (accuracy <= 40.0) {
+              if (lastTrackedPosition != null) {
+                final double deltaKm = _calculateHaversineKm(
+                  lastTrackedPosition!.latitude,
+                  lastTrackedPosition!.longitude,
+                  lat,
+                  lng,
+                );
+                final double deltaM = deltaKm * 1000.0;
+                final bool isStationaryJitter = speedKmh < 1.5 && deltaM < 15.0;
+                final bool isJump = deltaM > 600.0 && speedKmh < 40.0;
+
+                if (!isStationaryJitter && !isJump && deltaM >= 10.0) {
+                  accumulatedDistanceKm += deltaKm;
+                  lastTrackedPosition = LatLng(lat, lng);
+                }
+              } else {
+                lastTrackedPosition = LatLng(lat, lng);
+              }
+            }
           });
 
-          if (followDriver)
+          if (followDriver) {
             _mapController.move(driverLatLng, _mapController.camera.zoom);
+          }
 
+          // 1. Update driver live location
           await http.post(
             Uri.parse(ApiConfig.updateLocation),
-
             body: {
               'driver_id': widget.phoneNumber,
-              'latitude': currentLocation.latitude.toString(),
-              'longitude': currentLocation.longitude.toString(),
+              'latitude': lat.toString(),
+              'longitude': lng.toString(),
             },
           );
+
+          // 2. Sync GPS accumulated KM and breadcrumbs every 25 seconds
+          final now = DateTime.now();
+          if (lastSyncTime == null || now.difference(lastSyncTime!).inSeconds >= 25) {
+            lastSyncTime = now;
+            try {
+              await http.post(
+                Uri.parse(ApiConfig.syncTripGps),
+                headers: {'Content-Type': 'application/json'},
+                body: jsonEncode({
+                  'booking_id': widget.bookingId,
+                  'driver_id': widget.phoneNumber,
+                  'current_km': double.parse(accumulatedDistanceKm.toStringAsFixed(2)),
+                  'lat': lat,
+                  'lng': lng,
+                  'speed': speedKmh,
+                  'accuracy': accuracy,
+                }),
+              );
+            } catch (e) {
+              debugPrint("Sync GPS error: $e");
+            }
+          }
         }
       });
     } catch (e) {
@@ -258,15 +326,16 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
                   ],
                 ),
 
-                // 2. TOP BAR (Booking ID & Speed)
+                // 2. TOP BAR (Booking ID, Live Distance & Speed)
                 Positioned(
                   top: 50,
-                  left: 20,
-                  right: 20,
+                  left: 14,
+                  right: 14,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildHeaderChip("ID: #${widget.bookingId}"),
+                      _buildDistanceChip(),
                       _buildSpeedometer(),
                     ],
                   ),
@@ -333,6 +402,28 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
       ),
       child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildDistanceChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF047857),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.route_rounded, color: Colors.white, size: 15),
+          const SizedBox(width: 5),
+          Text(
+            "${accumulatedDistanceKm.toStringAsFixed(1)} KM",
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 
@@ -420,8 +511,10 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          EndingKmInputPage(bookingId: widget.bookingId),
+                      builder: (context) => EndingKmInputPage(
+                        bookingId: widget.bookingId,
+                        gpsDistanceKm: accumulatedDistanceKm,
+                      ),
                     ),
                   );
                 },

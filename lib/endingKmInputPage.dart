@@ -11,8 +11,13 @@ import 'api_config.dart';
 
 class EndingKmInputPage extends StatefulWidget {
   final String bookingId;
+  final double? gpsDistanceKm;
 
-  const EndingKmInputPage({super.key, required this.bookingId});
+  const EndingKmInputPage({
+    super.key,
+    required this.bookingId,
+    this.gpsDistanceKm,
+  });
 
   @override
   _EndingKmInputPageState createState() => _EndingKmInputPageState();
@@ -35,6 +40,15 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
   bool _isOtpVerified = false;
   String? _otpFromBackend;
   String? userType;
+  double backendGpsKm = 0.0;
+  String? backendEndOtp;
+
+  double _getEffectiveGpsKm() {
+    if (widget.gpsDistanceKm != null && widget.gpsDistanceKm! > 0) {
+      return widget.gpsDistanceKm!;
+    }
+    return backendGpsKm;
+  }
 
   // Trip Data Variables (Preserved from original logic)
   String? date,
@@ -89,7 +103,11 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
 
       if (data['success']) {
         setState(() {
-          _otpFromBackend = data['otp'];
+          _otpFromBackend = data['end_otp'] != null && data['end_otp'].toString().trim().isNotEmpty
+              ? data['end_otp'].toString().trim()
+              : data['otp']?.toString().trim();
+          backendEndOtp = data['end_otp']?.toString().trim();
+          backendGpsKm = double.tryParse(data['gps_accumulated_km']?.toString() ?? '0') ?? 0.0;
           date = data['date'];
           time = data['time'];
           returnDate = data['return_date'];
@@ -137,11 +155,12 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
     double toll = double.tryParse(_tollChargeController.text) ?? 0;
     double permit = double.tryParse(_permitChargeController.text) ?? 0;
 
+    final double effectiveGpsKm = _getEffectiveGpsKm();
     final double closingKm = double.tryParse(_closingKmController.text) ?? 0;
     final double sKm = double.tryParse(startingKm ?? '0') ?? 0;
 
-    // Validate closing KM for non-skip trip types (Local-Duty, Round-Trip)
-    final bool isKmRequired = tripType != 'One-way' && tripType != 'Local-taxi';
+    // Validate closing KM for non-skip trip types (Local-Duty uses automated GPS, One-way & Local-taxi don't need KM)
+    final bool isKmRequired = tripType != 'One-way' && tripType != 'Local-taxi' && tripType != 'Local-Duty';
     if (isKmRequired) {
       if (_closingKmController.text.trim().isEmpty) {
         _showError("⚠️ Please enter a closing kilometer reading.");
@@ -156,7 +175,9 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
     }
 
     try {
-      final double runningKm = closingKm - sKm;
+      final double runningKm = (tripType == 'Local-Duty')
+          ? (effectiveGpsKm > 0 ? effectiveGpsKm : (closingKm > sKm ? (closingKm - sKm) : 0))
+          : (closingKm - sKm);
 
       final dateTimeFormat = DateFormat("yyyy-MM-dd HH:mm");
       final now = dateTimeFormat.format(DateTime.now());
@@ -267,8 +288,10 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
         body: {
           'booking_id': widget.bookingId,
           'status': 'Completed',
-          'closing_km': closingKm.toString(),
-          'running_km': runningKm.toString(),
+          'closing_km': (tripType == 'Local-Duty' ? (sKm + runningKm).round().toString() : closingKm.toString()),
+          'running_km': runningKm.toStringAsFixed(2),
+          'end_otp': _otpController.text.trim(),
+          'otp': _otpController.text.trim(),
           'closing_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
           'closing_time': DateFormat('HH:mm:ss').format(DateTime.now()),
           'totalAmount': finalTotalAmount?.toStringAsFixed(2),
@@ -402,18 +425,84 @@ class _EndingKmInputPageState extends State<EndingKmInputPage> {
     );
   }
 
+  Widget _buildGpsVerifiedCard(double gpsKm) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(
+              color: Color(0xFFD1FAE5),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.gps_fixed_rounded, color: Color(0xFF047857), size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Text(
+                      "GPS VERIFIED DISTANCE",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF065F46),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    SizedBox(width: 6),
+                    Icon(Icons.verified_rounded, size: 14, color: Color(0xFF059669)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "${gpsKm.toStringAsFixed(2)} KM",
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF065F46),
+                  ),
+                ),
+                const Text(
+                  "Automated tamper-proof road tracking",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF047857),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInputSection(bool isOneWay) {
+    final bool isLocalDuty = tripType == 'Local-Duty';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionLabel("Final Readings & Expenses"),
         const SizedBox(height: 12),
-        if (!isOneWay)
+        if (isLocalDuty)
+          _buildGpsVerifiedCard(_getEffectiveGpsKm())
+        else if (!isOneWay)
           _customTextField(
               _closingKmController,
               "Closing Kilometer",
-              "0.00"
-                  "Enter final KM",
+              "Enter final KM",
               Icons.speed),
         _customTextField(_parkingChargeController, "Parking Charges", "0.00",
             Icons.local_parking),

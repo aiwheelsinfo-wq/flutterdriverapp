@@ -38,6 +38,7 @@ class ApiConfig {
   static const String registerDriver = "$driverPath/register_driver.php";
   static const String regStatusCheck = "$driverPath/regStatusCheck.php";
   static const String saveStartingKm = "$driverPath/save_starting_km.php";
+  static const String syncTripGps = "$driverPath/sync_trip_gps.php";
   static const String saveDriverPhone = "$baseUrl/admin2025/partner/saveDriverPhone_fixed.php";
   static const String statusChangeFilled = "$driverPath/status_change_filled.php";
   static const String statusChangeNotJoin = "$driverPath/status_change_not_join.php";

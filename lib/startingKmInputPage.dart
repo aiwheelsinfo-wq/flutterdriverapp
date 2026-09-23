@@ -67,10 +67,13 @@ class _StartingKmInputPageState extends State<StartingKmInputPage> {
     final phoneNumber = await secureStorage.read(key: "phone_number");
     final km = _kmController.text.trim();
 
-    // Logic for skipping KM input for specific trip types
-    final String typeLower = widget.triptype.toLowerCase();
-    final bool isSkipKm =
-        typeLower == "one-way" || typeLower == "local-taxi" || typeLower == "local taxi";
+    // Logic for skipping KM input for specific trip types (Local-Duty uses automated GPS tracking)
+    final String typeLower = widget.triptype.toLowerCase().trim();
+    final bool isSkipKm = typeLower == "one-way" ||
+        typeLower == "local-taxi" ||
+        typeLower == "local taxi" ||
+        typeLower == "local-duty" ||
+        typeLower == "local duty";
 
     if (!isSkipKm) {
       if (km.isEmpty || int.tryParse(km) == null || int.parse(km) < 0) {
@@ -91,7 +94,6 @@ class _StartingKmInputPageState extends State<StartingKmInputPage> {
 
       final response = await http.post(
         Uri.parse(ApiConfig.saveStartingKm),
-
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
@@ -284,8 +286,12 @@ class _StartingKmInputPageState extends State<StartingKmInputPage> {
   }
 
   Widget _buildKmSection() {
-    final bool isSkipKm =
-        widget.triptype == "One-way" || widget.triptype == "Local-taxi";
+    final String typeLower = widget.triptype.toLowerCase().trim();
+    final bool isSkipKm = typeLower == "one-way" ||
+        typeLower == "local-taxi" ||
+        typeLower == "local taxi" ||
+        typeLower == "local-duty" ||
+        typeLower == "local duty";
 
     return Column(
       key: const ValueKey(2),
@@ -300,7 +306,9 @@ class _StartingKmInputPageState extends State<StartingKmInputPage> {
         const SizedBox(height: 8),
         Text(
             isSkipKm
-                ? "You are ready to start the trip!"
+                ? (typeLower.contains("local")
+                    ? "Start OTP verified! Real-time GPS will automatically track your trip distance."
+                    : "You are ready to start the trip!")
                 : "Enter current odometer reading to begin",
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.grey)),
