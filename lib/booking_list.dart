@@ -951,7 +951,10 @@ class _BookingListPageState extends State<BookingListPage> {
                         decoration: BoxDecoration(
                             color: primaryAmber.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8)),
-                        child: Text(booking['trip_type'] ?? 'One-Way',
+                        child: Text(
+                            (booking['trip_type'] ?? '') == 'Local-Duty' || (booking['trip_type'] ?? '') == 'Local-duty'
+                                ? 'Hourly Rental'
+                                : (booking['trip_type'] ?? 'One-Way'),
                             style: TextStyle(
                                 color: primaryAmber,
                                 fontWeight: FontWeight.bold,
@@ -1675,7 +1678,7 @@ class _BookingListPageState extends State<BookingListPage> {
                               onTap: () => setModalState(() => tempTripType = 'Round-Trip'),
                             ),
                             _buildChoiceChip(
-                              label: "⏱️ Local Duty",
+                              label: "⏱️ Hourly Rental",
                               isSelected: tempTripType == 'Local-duty',
                               onTap: () => setModalState(() => tempTripType = 'Local-duty'),
                             ),

@@ -183,14 +183,15 @@ class _InvoicelistState extends State<Drivercomleatedlist> {
                                           () {
                                             String tType = (booking['trip_type'] ?? '').toString().toLowerCase();
                                              if (tType.contains('one-way') || tType.contains('one way')) {
+                                               double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                                               if (vendorAmt > 0) {
+                                                 return "₹${vendorAmt.toStringAsFixed(2)}";
+                                               }
                                                double rawFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
                                                double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
                                                double baseTripFare = (agentComm > 0 && rawFare > agentComm) ? (rawFare - agentComm) : rawFare;
-                                               if (baseTripFare == 0) {
-                                                 double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
-                                                 baseTripFare = vendorAmt / 0.90;
-                                               }
-                                               double vendorEarnings = baseTripFare * 0.90;
+                                               double preTax = baseTripFare / 1.05;
+                                               double vendorEarnings = preTax * 0.90;
                                                return "₹${vendorEarnings.toStringAsFixed(2)}";
                                              }
                                             if (tType.contains('local') && tType.contains('taxi')) {

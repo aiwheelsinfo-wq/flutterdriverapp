@@ -875,7 +875,7 @@ class _DriverTripPageState extends State<DriverTripPage>
       cleanType = "Round-Trip Outstation";
     } else if (lower.contains('duty')) {
       typeIcon = Icons.schedule_rounded;
-      cleanType = "Local Duty Rental";
+      cleanType = "Hourly Rental";
     } else if (lower.contains('airport')) {
       typeIcon = Icons.flight_takeoff_rounded;
       cleanType = "Airport Transfer";

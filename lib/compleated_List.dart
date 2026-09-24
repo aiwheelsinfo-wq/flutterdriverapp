@@ -259,7 +259,10 @@ class _CompleatedListState extends State<CompleatedList> {
                             fontSize: 12,
                             color: Colors.grey)),
                     const SizedBox(height: 4),
-                    Text(booking['trip_type'].toString().toUpperCase(),
+                    Text(
+                        (booking['trip_type'].toString().toLowerCase().contains('local-duty') || booking['trip_type'].toString().toLowerCase().contains('local duty'))
+                            ? 'HOURLY RENTAL'
+                            : booking['trip_type'].toString().toUpperCase(),
                         style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             color: charcoal,
@@ -404,14 +407,19 @@ class _CompleatedListState extends State<CompleatedList> {
                                   fontSize: 16));
                         }
                         if (tType.contains('one-way') || tType.contains('one way')) {
+                          double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                          if (vendorAmt > 0) {
+                            return Text("₹${vendorAmt.toStringAsFixed(2)}",
+                                style: const TextStyle(
+                                    color: primaryAmber,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16));
+                          }
                           double rawFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
                           double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
                           double fare = (agentComm > 0 && rawFare > agentComm) ? (rawFare - agentComm) : rawFare;
-                          if (fare == 0) {
-                            double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
-                            fare = vendorAmt / 0.90;
-                          }
-                          double vendorEarnings = fare * 0.90;
+                          double preTax = fare / 1.05;
+                          double vendorEarnings = preTax * 0.90;
                           return Text("₹${vendorEarnings.toStringAsFixed(2)}",
                               style: const TextStyle(
                                   color: primaryAmber,
@@ -522,16 +530,22 @@ class _CompleatedListState extends State<CompleatedList> {
                         double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
                         double customerTotal = (agentComm > 0 && rawTotal > agentComm) ? (rawTotal - agentComm) : rawTotal;
                         double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
-                        double platformCommission = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
+                        double totalDeducted = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
 
-                        if (customerTotal == 0 && vendorEarnings > 0) {
-                          customerTotal = vendorEarnings / 0.90;
+                        double baseCharge = customerTotal > 0 ? (customerTotal / 1.05) : 0.0;
+                        double totalGst = customerTotal - baseCharge;
+                        double cgst = totalGst / 2;
+                        double sgst = totalGst / 2;
+
+                        double platformCommission = 0.0;
+                        if (totalDeducted >= totalGst) {
+                          platformCommission = totalDeducted - totalGst;
+                        } else {
+                          platformCommission = totalDeducted;
                         }
-                        if (vendorEarnings == 0 && customerTotal > 0) {
-                          vendorEarnings = customerTotal * 0.90;
-                        }
-                        if (platformCommission == 0 && customerTotal > vendorEarnings) {
-                          platformCommission = customerTotal - vendorEarnings;
+
+                        if (vendorEarnings <= 0) {
+                          vendorEarnings = (customerTotal > totalDeducted) ? (customerTotal - totalDeducted) : (customerTotal * 0.90);
                         }
 
                         return Padding(
@@ -539,9 +553,14 @@ class _CompleatedListState extends State<CompleatedList> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              _buildFinancialSummaryRow("Base Fare", "₹${baseCharge.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("CGST (2.5%)", "₹${cgst.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("SGST (2.5%)", "₹${sgst.toStringAsFixed(0)}"),
+                              const Divider(height: 16, thickness: 0.8),
                               _buildFinancialSummaryRow("Total Customer Fare", "₹${customerTotal.toStringAsFixed(0)}"),
                               _buildFinancialSummaryRow("Collected from Customer", "₹${customerTotal.toStringAsFixed(0)}", isHighlight: true, highlightColor: primaryAmber),
-                              _buildFinancialSummaryRow("Platform Fee", "₹${platformCommission.toStringAsFixed(0)} (Wallet Deducted)"),
+                              _buildFinancialSummaryRow("Platform Fee (Wallet Deducted)", "₹${platformCommission.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("GST (5% Wallet Deducted)", "₹${totalGst.toStringAsFixed(0)}"),
                               const Divider(height: 16, thickness: 0.8),
                               _buildFinancialSummaryRow("Your Net Earnings", "₹${vendorEarnings.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
                               const SizedBox(height: 8),
@@ -559,7 +578,7 @@ class _CompleatedListState extends State<CompleatedList> {
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        "Trip completed successfully. 100% fare was collected directly from the customer, and the platform fee was deducted from your prepaid wallet.",
+                                        "Trip completed successfully. Collected ₹${customerTotal.toStringAsFixed(0)} from customer. Platform fee (₹${platformCommission.toStringAsFixed(0)}) and GST (₹${totalGst.toStringAsFixed(0)}) were deducted from your prepaid wallet.",
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: Colors.green[900],
@@ -604,13 +623,16 @@ class _CompleatedListState extends State<CompleatedList> {
                         double collectFromCustomer = (totalFare - advancePaid).clamp(0, double.infinity);
 
                         double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+                        double totalWalletDeducted = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
                         if (vendorEarnings == 0 && totalFare > 0) {
-                          vendorEarnings = totalFare * 0.90;
+                          vendorEarnings = (totalFare > totalWalletDeducted) ? (totalFare - totalWalletDeducted) : (totalFare * 0.90);
                         }
 
-                        double platformCommission = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
-                        if (platformCommission == 0 && totalFare > vendorEarnings) {
-                          platformCommission = totalFare - vendorEarnings;
+                        double platformCommission = 0.0;
+                        if (totalWalletDeducted >= totalGst) {
+                          platformCommission = totalWalletDeducted - totalGst;
+                        } else {
+                          platformCommission = totalWalletDeducted;
                         }
 
                         return Padding(
@@ -636,6 +658,8 @@ class _CompleatedListState extends State<CompleatedList> {
                                 highlightColor: const Color(0xFFD97706),
                               ),
                               _buildFinancialSummaryRow("Platform Fee (Wallet Deducted)", "₹${platformCommission.toStringAsFixed(0)}"),
+                              if (totalGst > 0)
+                                _buildFinancialSummaryRow("GST (5% Wallet Deducted)", "₹${totalGst.toStringAsFixed(0)}"),
                               const Divider(height: 16, thickness: 0.8),
                               _buildFinancialSummaryRow(
                                 "Your Net Earning",
@@ -658,7 +682,7 @@ class _CompleatedListState extends State<CompleatedList> {
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        "Local Duty completed. Collect ₹${collectFromCustomer.toStringAsFixed(0)} from customer via Cash or UPI. Platform fee was deducted from your prepaid wallet.",
+                                        "Hourly Rental completed. Collect ₹${collectFromCustomer.toStringAsFixed(0)} from customer via Cash or UPI. Platform fee (₹${platformCommission.toStringAsFixed(0)}) and GST (₹${totalGst.toStringAsFixed(0)}) were deducted from your prepaid wallet.",
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: Colors.green[900],
@@ -768,19 +792,31 @@ class _CompleatedListState extends State<CompleatedList> {
 
                       double rawFare = double.tryParse(booking['total_amount']?.toString() ?? '') ?? 0.0;
                       double agentComm = double.tryParse(booking['agent_commission']?.toString() ?? '0') ?? 0.0;
-                      double baseFare = (agentComm > 0 && rawFare > agentComm) ? (rawFare - agentComm) : rawFare;
-                      if (baseFare == 0) {
-                        double vendorAmt = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
-                        baseFare = vendorAmt / 0.90;
-                      }
-                      double vendorEarnings = baseFare * 0.90;
-
-                      double gstAmount = baseFare * 0.05;
-                      double platformCommission = baseFare * 0.10;
+                      double netBookedFare = (agentComm > 0 && rawFare > agentComm) ? (rawFare - agentComm) : rawFare;
                       double toll = double.tryParse(booking['toll_charge']?.toString() ?? '0') ?? 0.0;
                       double parking = double.tryParse(booking['parking_charge']?.toString() ?? '0') ?? 0.0;
                       double extraCharges = toll + parking;
-                      double totalCollected = baseFare + gstAmount + extraCharges;
+
+                      // One-Way booking total is already GST inclusive
+                      double baseFare = netBookedFare > 0 ? (netBookedFare / 1.05) : 0.0;
+                      double gstAmount = netBookedFare - baseFare;
+                      double totalCollected = netBookedFare + extraCharges;
+
+                      // Read dynamic agni_amount (platform deduction) and vendor_amount (net earning)
+                      double platformDeduction = double.tryParse(booking['agni_amount']?.toString() ?? '') ?? 0.0;
+                      double vendorEarnings = double.tryParse(booking['vendor_amount']?.toString() ?? '') ?? 0.0;
+
+                      double platformCommission = 0.0;
+                      if (platformDeduction > 0) {
+                        platformCommission = (platformDeduction - gstAmount).clamp(0, double.infinity);
+                      } else {
+                        platformCommission = baseFare * 0.10;
+                        platformDeduction = platformCommission + gstAmount;
+                      }
+
+                      if (vendorEarnings <= 0) {
+                        vendorEarnings = totalCollected - platformDeduction;
+                      }
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -791,7 +827,7 @@ class _CompleatedListState extends State<CompleatedList> {
                             _buildFinancialSummaryRow("GST (5%)", "₹${gstAmount.toStringAsFixed(0)}"),
                             if (extraCharges > 0) _buildFinancialSummaryRow("Toll / Parking (Included)", "₹${extraCharges.toStringAsFixed(0)}"),
                             _buildFinancialSummaryRow("Collected from Customer", "₹${totalCollected.toStringAsFixed(0)}", isHighlight: true, highlightColor: primaryAmber),
-                            _buildFinancialSummaryRow("Platform Fee (10%)", "₹${platformCommission.toStringAsFixed(0)} (Wallet Deducted)"),
+                            _buildFinancialSummaryRow("Platform Fee", "₹${platformCommission.toStringAsFixed(0)} (Wallet Deducted)"),
                             _buildFinancialSummaryRow("GST (5%)", "₹${gstAmount.toStringAsFixed(0)} (Wallet Deducted)"),
                             const Divider(height: 16, thickness: 0.8),
                             _buildFinancialSummaryRow("Your Net Earnings", "₹${vendorEarnings.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
