@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
 import '../widgets/ride_request_dialog.dart';
+import 'notification_service.dart';
 
 class OverlayService {
   OverlayService._();
@@ -46,6 +48,17 @@ class OverlayService {
   /// Handles incoming ride request floating display over other apps
   Future<void> handleIncomingRideAlert(Map<String, dynamic> data) async {
     try {
+      final String? bookingCarType = data['car_type']?.toString() ?? data['carType']?.toString();
+      const storage = FlutterSecureStorage();
+      final String? storedVType = await storage.read(key: 'driver_vehicle_type') ??
+          await storage.read(key: 'vehicle_type');
+      if (storedVType != null && storedVType.isNotEmpty && bookingCarType != null && bookingCarType.isNotEmpty) {
+        if (!NotificationService.isVehicleMatch(bookingCarType, storedVType)) {
+          debugPrint("🚫 [OverlayService] Mismatched car type ($bookingCarType vs driver $storedVType). Suppressing overlay.");
+          return;
+        }
+      }
+
       final bool isAdvance = (data['is_advance_booking'] == 'true');
       if (isAdvance) {
         debugPrint('📅 Advance Booking notification received. Skipping floating overlay/urgent countdown.');

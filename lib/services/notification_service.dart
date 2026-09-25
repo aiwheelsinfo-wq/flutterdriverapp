@@ -14,6 +14,20 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp();
+
+    if (message.data['notification_type'] == 'new_booking') {
+      const storage = FlutterSecureStorage();
+      final String? bookingCarType = message.data['car_type']?.toString();
+      final String? storedVType = await storage.read(key: 'driver_vehicle_type') ??
+          await storage.read(key: 'vehicle_type');
+      if (storedVType != null && storedVType.isNotEmpty && bookingCarType != null && bookingCarType.isNotEmpty) {
+        if (!NotificationService.isVehicleMatch(bookingCarType, storedVType)) {
+          debugPrint("🚫 [_firebaseMessagingBackgroundHandler] Mismatched car type ($bookingCarType vs driver $storedVType). Suppressing background alert.");
+          return;
+        }
+      }
+    }
+
     await NotificationService.instance.setupFlutterNotifications();
     await NotificationService.instance.showNotification(message);
 
@@ -244,6 +258,122 @@ class NotificationService {
     _isFlutterLocalNotificationsInitialized = true;
   }
 
+  static bool isVehicleMatch(String? bookingCarType, String? driverVehicleStr) {
+    if (bookingCarType == null || bookingCarType.trim().isEmpty) return true;
+    final bType = bookingCarType.trim().toLowerCase();
+    if (bType == 'all' || bType == 'any') return true;
+
+    if (driverVehicleStr == null || driverVehicleStr.trim().isEmpty) return false;
+    final dStr = driverVehicleStr.trim().toLowerCase();
+
+    final wantsSedan = bType.contains('sedan') ||
+        bType.contains('sadan') ||
+        bType.contains('sadden') ||
+        bType.contains('dzire') ||
+        bType.contains('aura') ||
+        bType.contains('etios') ||
+        bType.contains('amaze');
+
+    final wantsHatchback = bType.contains('hatch') ||
+        bType.contains('hack') ||
+        bType.contains('hash') ||
+        bType.contains('wagon') ||
+        bType.contains('celerio') ||
+        bType.contains('tiago') ||
+        bType.contains('i10');
+
+    final wantsErtiga = bType.contains('ertiga') ||
+        bType.contains('ertigl') ||
+        bType.contains('romiyon') ||
+        bType.contains('rumion');
+
+    final wantsCrystaInnova = bType.contains('crysta') || bType.contains('innova');
+
+    final wantsSuv = bType.contains('suv') ||
+        bType.contains('auv') ||
+        bType.contains('xuv') ||
+        bType.contains('mpv') ||
+        wantsErtiga ||
+        wantsCrystaInnova;
+
+    final wantsTempo = bType.contains('tempo') ||
+        bType.contains('traveller') ||
+        bType.contains('urabainia');
+
+    final entries = dStr.split(RegExp(r'[,|\n/]+'));
+    for (var entry in entries) {
+      final e = entry.trim();
+      if (e.isEmpty) continue;
+
+      final isSedan = e.contains('sedan') ||
+          e.contains('sadan') ||
+          e.contains('sadden') ||
+          e.contains('seden') ||
+          e.contains('sedaan') ||
+          e.contains('sudan') ||
+          e.contains('dzire') ||
+          e.contains('dizayr') ||
+          e.contains('aura') ||
+          e.contains('etios') ||
+          e.contains('amaze') ||
+          e.contains('bmw');
+
+      final isHatchback = e.contains('hatch') ||
+          e.contains('hack back') ||
+          e.contains('hashback') ||
+          e.contains('wagon') ||
+          e.contains('celerio') ||
+          e.contains('tiago') ||
+          e.contains('i10') ||
+          e.contains('alto') ||
+          e.contains('kwid') ||
+          (e.contains('swift') && !e.contains('dzire') && !e.contains('dizayr'));
+
+      final isErtiga = e.contains('ertiga') ||
+          e.contains('ertigl') ||
+          e.contains('romiyon') ||
+          e.contains('rumion');
+
+      final isCrystaInnova = e.contains('crysta') || e.contains('innova');
+
+      final isSuv = e.contains('suv') ||
+          e.contains('auv') ||
+          e.contains('xuv') ||
+          e.contains('mpv') ||
+          e.contains('carens') ||
+          e.contains('7 seater') ||
+          e.contains('scorpio') ||
+          e.contains('bolero') ||
+          e.contains('safari') ||
+          e.contains('harrier') ||
+          e.contains('marazzo') ||
+          isErtiga ||
+          isCrystaInnova;
+
+      final isTempo = e.contains('tempo') ||
+          e.contains('traveller') ||
+          e.contains('urabainia') ||
+          e == '14';
+
+      if (wantsSedan && isSedan) return true;
+      if (wantsHatchback && isHatchback) return true;
+      if (wantsCrystaInnova) {
+        if (isCrystaInnova || (isSuv && e.contains('premium'))) return true;
+      } else if (wantsErtiga) {
+        if (isErtiga || isSuv) return true;
+      } else if (wantsSuv && isSuv) {
+        return true;
+      }
+      if (wantsTempo && isTempo) return true;
+
+      if (e == bType || (e.length > 3 && bType.contains(e)) || (bType.length > 3 && e.contains(bType))) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   static Int64List _generateVibrationPattern(int seconds) {
     final List<int> pattern = [0];
     double elapsed = 0.0;
@@ -260,6 +390,19 @@ class NotificationService {
 
     // Read Driver/Vendor notification preferences from Secure Storage
     const storage = FlutterSecureStorage();
+
+    if (isNewBooking) {
+      final String? bookingCarType = data['car_type']?.toString();
+      final String? storedVType = await storage.read(key: 'driver_vehicle_type') ??
+          await storage.read(key: 'vehicle_type');
+      if (storedVType != null && storedVType.isNotEmpty && bookingCarType != null && bookingCarType.isNotEmpty) {
+        if (!isVehicleMatch(bookingCarType, storedVType)) {
+          debugPrint("🚫 [NotificationService] Mismatched car type ($bookingCarType vs driver $storedVType). Suppressing notification.");
+          return;
+        }
+      }
+    }
+
     String? storedVib;
     String? storedSnd;
     try {

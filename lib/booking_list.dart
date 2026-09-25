@@ -297,6 +297,9 @@ class _BookingListPageState extends State<BookingListPage> {
             totalTripCount = (data["acceptedBookings"] as List).length;
             isLoading = false;
           });
+          if (data["driver_vehicle_type"] != null && data["driver_vehicle_type"].toString().isNotEmpty) {
+            secureStorage.write(key: "driver_vehicle_type", value: data["driver_vehicle_type"].toString());
+          }
         }
       }
     } catch (e) {
