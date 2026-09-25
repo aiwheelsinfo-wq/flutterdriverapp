@@ -292,10 +292,9 @@ class _BookingListPageState extends State<BookingListPage> {
             _isEligibleForLocalTaxi = data["is_eligible_for_local_taxi"] ?? (_walletBalance > _minWalletBalance);
             _minWalletBalanceRoundTrip = (data["min_wallet_balance_round_trip"] as num?)?.toDouble() ?? 1000.0;
             _isEligibleForRoundTrip = data["is_eligible_for_round_trip"] ?? (_walletBalance > _minWalletBalanceRoundTrip);
-            totalTripCount = (data["acceptedBookings"] as List).length;
-            final bool isOccupiedToday = (data["is_driver_occupied_today"] == true || data["is_driver_occupied"] == true);
-            allBookings = isOccupiedToday ? [] : (data["bookings"] ?? []);
+            allBookings = data["bookings"] ?? [];
             bookings = _applyFilters(allBookings);
+            totalTripCount = (data["acceptedBookings"] as List).length;
             isLoading = false;
           });
           if (data["driver_vehicle_type"] != null && data["driver_vehicle_type"].toString().isNotEmpty) {
@@ -1854,31 +1853,23 @@ class _BookingListPageState extends State<BookingListPage> {
     );
   }
   Widget _buildEmptyState() => Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                totalTripCount > 0 ? Icons.directions_car_rounded : Icons.cloud_off_rounded,
-                size: 36,
-                color: totalTripCount > 0 ? primaryAmber : Colors.grey[350],
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // Takes only as much height as needed
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 30, // Reduced from 60
+              color: Colors.grey[300],
+            ),
+            const SizedBox(height: 8), // Adds a small gap
+            const Text(
+              "No active marketplace bookings",
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 8, // Smaller font
               ),
-              const SizedBox(height: 10),
-              Text(
-                totalTripCount > 0
-                    ? "You have an active trip in progress.\nCheck the 'Active' tab above to manage your ride."
-                    : "No active marketplace bookings",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: totalTripCount > 0 ? darkCharcoal : Colors.grey[600],
-                  fontSize: 12,
-                  height: 1.4,
-                  fontWeight: totalTripCount > 0 ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
 
