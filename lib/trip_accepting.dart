@@ -8,6 +8,7 @@ import 'api_config.dart';
 import 'booking_list.dart';
 import 'vendor_wallet_page.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'widgets/route_helper.dart';
 
 // Brand Color Palette
 const Color kRentoxOrange = Color(0xFFFFB000);
@@ -958,8 +959,6 @@ class _DriverTripPageState extends State<DriverTripPage>
   // ==========================================
   Widget _buildVisualRouteCard(
       String tripType, String pickupLocation, String dropLocation) {
-    final bool hasDrop = dropLocation.isNotEmpty && dropLocation != 'N/A';
-
     return Container(
       padding: const EdgeInsets.all(18.0),
       decoration: BoxDecoration(
@@ -1016,114 +1015,11 @@ class _DriverTripPageState extends State<DriverTripPage>
           ),
           const SizedBox(height: 16.0),
 
-          // Pickup Location
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Orange Circle Indicator
-              Column(
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: kRentoxOrange,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: kRentoxOrange.withValues(alpha: 0.3),
-                        width: 3,
-                      ),
-                    ),
-                  ),
-                  // Connecting Line
-                  Container(
-                    width: 2,
-                    height: hasDrop ? 36 : 14,
-                    color: kBorderGray,
-                  ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "PICKUP",
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFFB45309),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      pickupLocation,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: kDarkText,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // Drop Location (or Flexible package note)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: hasDrop ? kDangerRed : kSuccessGreen,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: (hasDrop ? kDangerRed : kSuccessGreen)
-                        .withValues(alpha: 0.3),
-                    width: 3,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hasDrop ? "DESTINATION" : "DUTY DETAILS",
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: hasDrop ? kDangerRed : kSuccessGreen,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      hasDrop
-                          ? dropLocation
-                          : "City Package / As directed by customer",
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: kDarkText,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          RouteHelper.buildRouteStepper(
+            context: context,
+            pickupLocation: pickupLocation,
+            dropLocation: dropLocation.isNotEmpty ? dropLocation : "City Package / As directed by customer",
+            isDialog: false,
           ),
         ],
       ),

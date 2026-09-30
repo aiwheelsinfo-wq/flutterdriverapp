@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'endingKmInputPage.dart';
 import 'api_config.dart';
+import 'widgets/route_helper.dart';
 
 
 class TripLiveMapping extends StatefulWidget {
@@ -117,7 +118,8 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
             toAddress != "Local Trip / Drop" &&
             toAddress != "Local Duty" &&
             toAddress != "N/A") {
-          toLatLng = await _geocodeAddress(toAddress);
+          final parsed = RouteHelper.parseRoute(toAddress);
+          toLatLng = await _geocodeAddress(parsed.displayFinalDrop);
         }
       } catch (e) {
         debugPrint("Geocoding failed for drop address ($toAddress): $e");
@@ -335,8 +337,9 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
           toAddress != "Local Trip / Drop" &&
           toAddress != "Local Duty" &&
           toAddress != "N/A") {
+        final parsed = RouteHelper.parseRoute(toAddress);
         mapUri = Uri.parse(
-            "google.navigation:q=${Uri.encodeComponent(toAddress)}&mode=d");
+            "google.navigation:q=${Uri.encodeComponent(parsed.displayFinalDrop)}&mode=d");
       }
 
       if (mapUri != null && await canLaunchUrl(mapUri)) {
@@ -572,11 +575,34 @@ class _TripLiveMappingState extends State<TripLiveMapping> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 25),
-                      Text(toAddress,
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                      Builder(builder: (context) {
+                        final parsed = RouteHelper.parseRoute(toAddress);
+                        if (parsed.isMultiStop) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(parsed.displayFinalDrop,
+                                  style: const TextStyle(
+                                      fontSize: 15, fontWeight: FontWeight.bold),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 3),
+                              Text("Via: ${parsed.stopsSummary}",
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF0284C7),
+                                      fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ],
+                          );
+                        }
+                        return Text(toAddress,
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis);
+                      }),
                     ],
                   ),
                 ),

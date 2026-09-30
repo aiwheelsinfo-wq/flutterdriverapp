@@ -5,7 +5,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_config.dart';
 import 'booking_list.dart';
 import 'vendor_wallet_page.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class CarDriverSelectionScreen extends StatefulWidget {
   final String bookingId;
@@ -15,6 +14,18 @@ class CarDriverSelectionScreen extends StatefulWidget {
   @override
   _CarDriverSelectionScreenState createState() =>
       _CarDriverSelectionScreenState();
+}
+
+class VehicleInfo {
+  final String regNumber;
+  final String cleanName;
+  final String category;
+
+  VehicleInfo({
+    required this.regNumber,
+    required this.cleanName,
+    required this.category,
+  });
 }
 
 class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
@@ -33,6 +44,7 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
 
   Map<String, String> vehicleStatus = {};
   Map<String, String> driverStatus = {};
+  Map<String, VehicleInfo> vehicleInfoMap = {};
 
   double? totalAmount;
   double? vendorAmount; // Raw vendor_amount from API — for local taxi this IS the customer's fare
@@ -214,10 +226,32 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
                 .toSet()
                 .toList();
 
-            // Map vehicle status based on today's bookings in the car list
+            // Map vehicle info (clean name + category) based on cars list
+            vehicleInfoMap = {
+              for (var car in carsList)
+                car["vehicle_number"].toString(): VehicleInfo(
+                  regNumber: car["vehicle_number"].toString(),
+                  cleanName: _cleanVehicleName(car["vehicle_name"]?.toString()),
+                  category: _formatCategory(
+                      car["vehicle_type"]?.toString() ?? car["car_category"]?.toString()),
+                )
+            };
+
+            for (var item in driverVehicleData) {
+              String vNum = (item["vehicle_number"] ?? '').toString().trim();
+              if (vNum.isNotEmpty && !vehicleInfoMap.containsKey(vNum)) {
+                vehicleInfoMap[vNum] = VehicleInfo(
+                  regNumber: vNum,
+                  cleanName: _cleanVehicleName(item["vehicle_name"]?.toString()),
+                  category: _formatCategory(item["vehicle_type"]?.toString()),
+                );
+              }
+            }
+
             vehicleStatus = {
               for (var car in carsList)
-                car["vehicle_number"].toString(): _isBookedToday(car["bookings"] ?? []) ? "conflict" : "available"
+                car["vehicle_number"].toString():
+                    _isBookedToday(car["bookings"] ?? []) ? "conflict" : "available"
             };
 
             driverStatus = {
@@ -246,6 +280,46 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
       setState(() => isLoading = false);
       _showSnackBar('Error: ${e.toString()}');
     }
+  }
+
+  String _cleanVehicleName(String? raw) {
+    if (raw == null) return '';
+    String name = raw.trim();
+    if (name.isEmpty) return '';
+
+    // Remove corporate manufacturer legal tags like "INDIA LTD", "PVT LTD", etc.
+    name = name
+        .replaceAll(
+            RegExp(r'\b(?:INDIA\s+)?(?:LTD|LIMITED|PVT\s+LTD|PRIVATE\s+LIMITED|MOTORS?)\b',
+                caseSensitive: false),
+            '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    // Convert to readable Title Case if entirely UPPERCASE
+    if (name == name.toUpperCase()) {
+      final acronyms = {
+        'VXI', 'ZXI', 'LXI', 'VDI', 'ZDI', 'LDI', 'XT', 'XZ', 'ZX', 'VX', 'GX',
+        'EX', 'SX', 'AT', 'MT', 'CNG', 'EV', 'ABS', 'BS6', 'BSIV', '4X4', '4WD',
+        'CRDI', 'TDCI', 'TDI', 'TSI', 'MPI', 'SUV', 'MUV', 'MPV'
+      };
+      name = name.split(' ').map((word) {
+        if (word.isEmpty) return '';
+        final upper = word.toUpperCase();
+        if (acronyms.contains(upper) || RegExp(r'^\d+(\.\d+)?[A-Z]*$').hasMatch(upper)) {
+          return upper;
+        }
+        return word[0].toUpperCase() + word.substring(1).toLowerCase();
+      }).join(' ');
+    }
+
+    return name;
+  }
+
+  String _formatCategory(String? cat) {
+    if (cat == null) return '';
+    String c = cat.trim().replaceAll('_', ' ');
+    return c.toUpperCase();
   }
 
   bool _isBookedToday(List bookings) {
@@ -492,6 +566,7 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
             value: selectedVehicle,
             items: vehicles,
             statusMap: vehicleStatus,
+            vehicleInfoMap: vehicleInfoMap,
             onChanged: (v) => setState(() => selectedVehicle = v),
           ),
           const SizedBox(height: 16),
@@ -550,8 +625,11 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
     required String? value,
     required List<String> items,
     required Map<String, String> statusMap,
+    Map<String, VehicleInfo>? vehicleInfoMap,
     required Function(String?) onChanged,
   }) {
+    final bool isVehicle = vehicleInfoMap != null;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -581,40 +659,176 @@ class _CarDriverSelectionScreenState extends State<CarDriverSelectionScreen> {
           DropdownButtonFormField<String>(
             value: value,
             isExpanded: true,
+            itemHeight: 56.0, // Fixed height for dropdown menu items
             icon: const Icon(Icons.keyboard_arrow_down_rounded,
                 color: primaryAmber),
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.grey.shade50,
               contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none),
             ),
             items: items.map((String item) {
-              bool isConflict = statusMap[item] == "conflict";
+              final bool isConflict = statusMap[item] == "conflict";
+              final VehicleInfo? vInfo = vehicleInfoMap?[item];
+              final String displayName = isVehicle ? item : item.split('\n').first;
+              final String? subtext = isVehicle
+                  ? (vInfo?.cleanName.isNotEmpty == true ? vInfo!.cleanName : null)
+                  : (item.contains('\n') ? item.split('\n').last : null);
+              final String? category = isVehicle
+                  ? (vInfo?.category.isNotEmpty == true ? vInfo!.category : null)
+                  : null;
+
               return DropdownMenuItem<String>(
                 value: item,
                 enabled: !isConflict,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                        child: Text(item,
-                            style: TextStyle(
-                                color: isConflict ? Colors.grey : darkCharcoal,
-                                fontSize: 14))),
-                    if (isConflict)
-                      const Badge(
-                          label: Text("BOOKED"), backgroundColor: errorRed)
-                    else
-                      const Icon(Icons.check_circle_outline,
-                          size: 16, color: Colors.green),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Line 1: Full Registration Number (never cut off) + Category Badge
+                            Row(
+                              children: [
+                                Text(
+                                  displayName,
+                                  style: TextStyle(
+                                    color: isConflict ? Colors.grey : darkCharcoal,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                if (category != null && category.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(
+                                          color: const Color(0xFFBFDBFE),
+                                          width: 0.8),
+                                    ),
+                                    child: Text(
+                                      category.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF1D4ED8),
+                                        letterSpacing: 0.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            // Line 2: Clean Vehicle Name or Driver Phone
+                            if (subtext != null && subtext.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                subtext,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: isConflict
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (isConflict)
+                        const Badge(
+                            label: Text("BOOKED"), backgroundColor: errorRed)
+                      else
+                        const Icon(Icons.check_circle_outline,
+                            size: 18, color: Colors.green),
+                    ],
+                  ),
                 ),
               );
             }).toList(),
+            selectedItemBuilder: (BuildContext context) {
+              return items.map<Widget>((String item) {
+                final VehicleInfo? vInfo = vehicleInfoMap?[item];
+                final String displayName = isVehicle ? item : item.split('\n').first;
+                final String? subtext = isVehicle
+                    ? (vInfo?.cleanName.isNotEmpty == true ? vInfo!.cleanName : null)
+                    : (item.contains('\n') ? item.split('\n').last : null);
+                final String? category = isVehicle
+                    ? (vInfo?.category.isNotEmpty == true ? vInfo!.category : null)
+                    : null;
+
+                return Row(
+                  children: [
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        color: darkCharcoal,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    if (category != null && category.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                              color: const Color(0xFFBFDBFE), width: 0.8),
+                        ),
+                        child: Text(
+                          category.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1D4ED8),
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (subtext != null && subtext.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          subtext,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 6),
+                    const Icon(Icons.check_circle_outline,
+                        size: 16, color: Colors.green),
+                  ],
+                );
+              }).toList();
+            },
             onChanged: onChanged,
           ),
         ],

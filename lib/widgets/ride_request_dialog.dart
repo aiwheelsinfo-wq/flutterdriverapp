@@ -10,6 +10,7 @@ import '../booking_list.dart';
 import '../main.dart';
 import '../trip_accepting.dart';
 import '../vendor_wallet_page.dart';
+import 'route_helper.dart';
 
 class RideRequestDialog extends StatefulWidget {
   final String bookingId;
@@ -1099,161 +1100,15 @@ class _RideRequestDialogState extends State<RideRequestDialog>
                                 ),
                         ),
 
-                        // Route Details (Pickup & Drop)
+                        // Route Details (Pickup, Multi-Stops & Drop)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-                          child: Column(
-                            children: [
-                              // Pickup
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 2),
-                                    width: 14,
-                                    height: 14,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF10B981),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: const Color(0xFF10B981)
-                                            .withValues(alpha: 0.3),
-                                        width: 3,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'PICKUP',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.grey.shade500,
-                                            letterSpacing: 0.6,
-                                          ),
-                                        ),
-                                        Text(
-                                          widget.pickupLocation.isNotEmpty
-                                              ? widget.pickupLocation
-                                              : 'Customer pickup location',
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: const Color(0xFF1E293B),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              if (widget.dropLocation.isNotEmpty) ...[
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 2),
-                                  child: Row(
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 6),
-                                        child: Container(
-                                          width: 2,
-                                          height: hasDistance ? 20 : 16,
-                                          color: Colors.grey.shade300,
-                                        ),
-                                      ),
-                                      if (hasDistance) ...[
-                                        const SizedBox(width: 14),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF1F5F9),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                            border: Border.all(
-                                                color: const Color(0xFFE2E8F0)),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.straighten_rounded,
-                                                size: 11,
-                                                color: Color(0xFF64748B),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                '$formattedDist km trip',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: const Color(0xFF475569),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                // Drop
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      margin: const EdgeInsets.only(top: 2),
-                                      width: 14,
-                                      height: 14,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFEF4444),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: const Color(0xFFEF4444)
-                                              .withValues(alpha: 0.3),
-                                          width: 3,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'DROP',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.grey.shade500,
-                                              letterSpacing: 0.6,
-                                            ),
-                                          ),
-                                          Text(
-                                            widget.dropLocation,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: const Color(0xFF1E293B),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
+                          child: RouteHelper.buildRouteStepper(
+                            context: context,
+                            pickupLocation: widget.pickupLocation,
+                            dropLocation: widget.dropLocation,
+                            distanceKm: hasDistance ? formattedDist : null,
+                            isDialog: true,
                           ),
                         ),
 

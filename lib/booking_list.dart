@@ -24,6 +24,7 @@ import 'owner_account.dart';
 import 'package:geolocator/geolocator.dart';
 import 'support_chat_page.dart';
 import 'vendor_wallet_page.dart';
+import 'widgets/route_helper.dart';
 
 class BookingListPage extends StatefulWidget {
   final String phoneNumber;
@@ -1013,16 +1014,16 @@ class _BookingListPageState extends State<BookingListPage> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                _buildJourneyLine(),
+                RouteHelper.buildCardJourneyIndicator(
+                  dropLocation: booking['drop_location'],
+                  primaryColor: primaryAmber,
+                ),
                 const SizedBox(width: 15),
                 Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _locationTitle("Pickup", booking['pickup_location']),
-                        const SizedBox(height: 20),
-                        _locationTitle("Drop", booking['drop_location']),
-                      ]),
+                  child: RouteHelper.buildCardRouteSection(
+                    pickupLocation: booking['pickup_location'],
+                    dropLocation: booking['drop_location'],
+                  ),
                 ),
                 _carLabel(
                   booking['car_type'],

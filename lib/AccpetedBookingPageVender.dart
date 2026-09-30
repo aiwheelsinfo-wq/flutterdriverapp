@@ -11,6 +11,7 @@ import 'tripLiveMaping.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'widgets/route_helper.dart';
 
 class MergedBookingsPage extends StatefulWidget {
   const MergedBookingsPage({super.key});
@@ -494,9 +495,21 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
                 _buildDetailedRow(Icons.location_on, "Pickup",
                     booking['pickup_location'] ?? 'N/A'),
                 const SizedBox(height: 4),
-                if ((booking['drop_location'] ?? '').toString().isNotEmpty)
-                  _buildDetailedRow(Icons.flag, "Drop",
-                      booking['drop_location']),
+                if ((booking['drop_location'] ?? '').toString().isNotEmpty) ...[
+                  Builder(builder: (context) {
+                    final parsed = RouteHelper.parseRoute(booking['drop_location']);
+                    if (parsed.isMultiStop) {
+                      return Column(
+                        children: [
+                          _buildDetailedRow(Icons.alt_route, "Stops", "${parsed.intermediateStops.length} Stops (${parsed.stopsSummary})"),
+                          const SizedBox(height: 4),
+                          _buildDetailedRow(Icons.flag, "Final Drop", parsed.displayFinalDrop),
+                        ],
+                      );
+                    }
+                    return _buildDetailedRow(Icons.flag, "Drop", booking['drop_location']);
+                  }),
+                ],
 
                 const SizedBox(height: 12),
                 // Refund info box
@@ -775,15 +788,35 @@ class _MergedBookingsPageState extends State<MergedBookingsPage>
                               ),
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              booking['drop_location'] ?? "Local Trip / Drop",
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey.shade700),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            Builder(builder: (context) {
+                              final parsed = RouteHelper.parseRoute(booking['drop_location']);
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    parsed.displayFinalDrop,
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.grey.shade700),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (parsed.isMultiStop) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      "Via ${parsed.stopsSummary}",
+                                      style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF0284C7)),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
+                              );
+                            }),
                           ],
                         ),
                       ),
