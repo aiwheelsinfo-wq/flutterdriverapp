@@ -818,6 +818,15 @@ class _CompleatedListState extends State<CompleatedList> {
                         vendorEarnings = totalCollected - platformDeduction;
                       }
 
+                      // Advance Payment & Cash Collection Logic
+                      double advancePaid = double.tryParse(booking['paid_amount']?.toString() ?? '0') ?? 0.0;
+                      String payType = (booking['payment_type'] ?? '').toString();
+                      if (payType.toLowerCase().contains('driver') || payType.toLowerCase().contains('cash')) {
+                        advancePaid = 0.0;
+                      }
+                      double cashCollected = (totalCollected - advancePaid).clamp(0, double.infinity);
+                      double actualWalletDeducted = (platformDeduction - advancePaid).clamp(0, double.infinity);
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Column(
@@ -826,9 +835,19 @@ class _CompleatedListState extends State<CompleatedList> {
                             _buildFinancialSummaryRow("Base Trip Fare", "₹${baseFare.toStringAsFixed(0)}"),
                             _buildFinancialSummaryRow("GST (5%)", "₹${gstAmount.toStringAsFixed(0)}"),
                             if (extraCharges > 0) _buildFinancialSummaryRow("Toll / Parking (Included)", "₹${extraCharges.toStringAsFixed(0)}"),
-                            _buildFinancialSummaryRow("Collected from Customer", "₹${totalCollected.toStringAsFixed(0)}", isHighlight: true, highlightColor: primaryAmber),
-                            _buildFinancialSummaryRow("Platform Fee", "₹${platformCommission.toStringAsFixed(0)} (Wallet Deducted)"),
-                            _buildFinancialSummaryRow("GST (5%)", "₹${gstAmount.toStringAsFixed(0)} (Wallet Deducted)"),
+                            if (advancePaid > 0) ...[
+                              _buildFinancialSummaryRow("Total Trip Fare", "₹${totalCollected.toStringAsFixed(0)}"),
+                              _buildFinancialSummaryRow("Advance Paid Online", "₹${advancePaid.toStringAsFixed(0)}", isHighlight: true, highlightColor: const Color(0xFF008CFF)),
+                              _buildFinancialSummaryRow("Collected from Customer", "₹${cashCollected.toStringAsFixed(0)}", isHighlight: true, highlightColor: primaryAmber),
+                            ] else ...[
+                              _buildFinancialSummaryRow("Collected from Customer", "₹${totalCollected.toStringAsFixed(0)}", isHighlight: true, highlightColor: primaryAmber),
+                            ],
+                            if (advancePaid > 0 && actualWalletDeducted <= 0) ...[
+                              _buildFinancialSummaryRow("Platform Fee & GST", "₹0 (Advance Covered)"),
+                            ] else ...[
+                              _buildFinancialSummaryRow("Platform Fee", "₹${platformCommission.toStringAsFixed(0)} (Wallet Deducted)"),
+                              _buildFinancialSummaryRow("GST (5%)", "₹${gstAmount.toStringAsFixed(0)} (Wallet Deducted)"),
+                            ],
                             const Divider(height: 16, thickness: 0.8),
                             _buildFinancialSummaryRow("Your Net Earnings", "₹${vendorEarnings.toStringAsFixed(0)}", isHighlight: true, highlightColor: Colors.green),
                             const SizedBox(height: 8),
@@ -846,7 +865,9 @@ class _CompleatedListState extends State<CompleatedList> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      "Trip completed successfully. 100% fare (₹${totalCollected.toStringAsFixed(0)}) was collected directly from the customer, and the platform fee (₹${platformCommission.toStringAsFixed(0)}) + 5% GST (₹${gstAmount.toStringAsFixed(0)}) were deducted from your prepaid wallet.",
+                                      advancePaid > 0
+                                          ? "Trip completed successfully. ₹${advancePaid.toStringAsFixed(0)} advance was paid online by the customer, and ₹${cashCollected.toStringAsFixed(0)} was collected in cash. The platform fee was covered by the online advance (₹0 deducted from your wallet)."
+                                          : "Trip completed successfully. 100% fare (₹${totalCollected.toStringAsFixed(0)}) was collected directly from the customer, and the platform fee (₹${platformCommission.toStringAsFixed(0)}) + 5% GST (₹${gstAmount.toStringAsFixed(0)}) were deducted from your prepaid wallet.",
                                       style: TextStyle(
                                         fontSize: 10,
                                         color: Colors.green[900],
@@ -916,20 +937,28 @@ class _CompleatedListState extends State<CompleatedList> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
-              color: isHighlight ? charcoal : Colors.grey[600],
+          Flexible(
+            flex: 6,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+                color: isHighlight ? charcoal : Colors.grey[600],
+              ),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isHighlight ? (highlightColor ?? primaryAmber) : charcoal,
+          const SizedBox(width: 8),
+          Flexible(
+            flex: 5,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isHighlight ? (highlightColor ?? primaryAmber) : charcoal,
+              ),
             ),
           ),
         ],
